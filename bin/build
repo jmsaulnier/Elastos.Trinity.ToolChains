@@ -73,7 +73,6 @@ BUILT_IN_MIRROR_ANDROID=os.path.join(RUNTIME_DIR_PATH, "platforms/android/app/sr
 BUILT_IN_MIRROR_IOS=os.path.join(RUNTIME_DIR_PATH, "platforms/ios/www/built-in/")
 BUILT_IN_MIRROR_ELECTRON=os.path.join(RUNTIME_DIR_PATH, "platforms/electron/www/built-in/")
 
-
 def run_cmd(cmd, ignore_error=False):
     print("Running: " + cmd)
     ret = subprocess.call(cmd, shell=True)
