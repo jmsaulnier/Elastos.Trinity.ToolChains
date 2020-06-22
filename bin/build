@@ -65,6 +65,7 @@ BUILT_IN_DIR_PATH=os.path.join(RUNTIME_DIR_PATH, "www/built-in/")
 PLUGIN_DIR_PATH=os.path.join(PROJECT_DIR_PATH, "Plugins")
 BUILT_IN_MIRROR_ANDROID=os.path.join(RUNTIME_DIR_PATH, "platforms/android/app/src/main/assets/www/built-in/")
 BUILT_IN_MIRROR_IOS=os.path.join(RUNTIME_DIR_PATH, "platforms/ios/www/built-in/")
+BUILT_IN_MIRROR_ELECTRON=os.path.join(RUNTIME_DIR_PATH, "platforms/electron/www/built-in/")
 
 def run_cmd(cmd, ignore_error=False):
     print("Running: " + cmd)
@@ -106,6 +107,9 @@ def build_app(app_path, platform, needBuild, output="www"):
     if platform == "all" or platform == "ios":
         if os.path.isdir(BUILT_IN_MIRROR_IOS):
             copy_tree(output, BUILT_IN_MIRROR_IOS + app_id)
+    if platform == "all" or platform == "electron":
+        if os.path.isdir(BUILT_IN_MIRROR_ELECTRON):
+            copy_tree(output, BUILT_IN_MIRROR_ELECTRON + app_id)
 
 def add_firebase():
     if not os.path.isfile(os.path.join(RUNTIME_DIR_PATH + '/GoogleService-Info.plist')):
@@ -272,6 +276,8 @@ if args.target == "all" or args.target == "launcher" or args.target == "runtime"
         run_cmd("cordova build android " + build_type + " " + build_arg)
     if build_platform == "all" or build_platform == "ios":
         run_cmd("cordova build ios " + build_type + " " + build_arg)
+    if build_platform == "all" or build_platform == "electron":
+        run_cmd("cordova build electron " + build_type + " " + build_arg)
 
 elapsed = timeit.default_timer() - startTime
 minutes = elapsed / 60
