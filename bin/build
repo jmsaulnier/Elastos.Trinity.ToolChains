@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 
 import sys
-reload(sys)
-sys.setdefaultencoding('utf8')
+osSystem=sys.platform
+if osSystem == "win32":
+    import importlib
+    importlib.reload(sys)
+else:
+    reload(sys)
+    sys.setdefaultencoding('utf8')
 import argparse
 import distutils.dir_util as dir_util
 import json
@@ -11,9 +16,12 @@ import subprocess
 import sys
 import textwrap
 import timeit
+import fileinput
 
 sys.path.append(os.path.abspath(os.path.dirname(os.path.realpath(__file__)) + '/../lib'))
 import ela_plugin
+
+
 
 parser = argparse.ArgumentParser(description='Build the Elastor.Trinity project.',
                                  formatter_class=argparse.RawTextHelpFormatter)
@@ -185,6 +193,77 @@ def build_partnerapps(platform):
         if platform in app['platforms']:
             build_partnerapp(apps_fullpath, app, platform)
 
+# Solve the electron path issues
+def fix_electron_path():
+    filename = os.path.join(RUNTIME_DIR_PATH, "www", "launcher", "index.html")
+    fin = open(filename, "rt")
+    data = fin.read()
+    data = data.replace('<base href="/" />', '<base href="./" />')
+    data = data.replace('src="asset://www/cordova.js"', 'src="file:../cordova.js"')
+    fin.close()
+    fin = open(filename, "wt")
+    fin.write(data)
+    fin.close()
+
+# Copy the plugin to main before cordova prepare
+def install_and_copy_plugin():
+    ela_plugin.re_install_plugin(os.path.join(RUNTIME_DIR_PATH, "plugin_src", "AppManager"))
+    srcFile = os.path.join(RUNTIME_DIR_PATH, "plugin_src", "AppManager", "src", "electron", "AppManagerPluginMain.ts")
+    destDir = os.path.join(RUNTIME_DIR_PATH, "platform_src", "electron", "main", "plugins_main")
+    if osSystem=="win32":
+        run_cmd("copy "+srcFile+" "+destDir)
+    else:
+        run_cmd("cp "+srcFile+" "+destDir)
+    
+
+# Copy renderer files. Moved from build.renderer.js
+def copy_renderer_files():
+    srcRenderer = os.path.join(RUNTIME_DIR_PATH, "platforms", "electron", "platform_www", "trinity-renderer.js")
+    destDirRenderer = os.path.join(RUNTIME_DIR_PATH, "platforms", "electron", "www")
+    srcPreload = os.path.join(RUNTIME_DIR_PATH, "platform_src", "electron", "renderer", "dapp_preload.js")
+    destDirPreload = os.path.join(RUNTIME_DIR_PATH, "platforms", "electron", "platform_www")
+    srcPlugin = os.path.join(RUNTIME_DIR_PATH, "plugin_src", "AppManager", "src", "electron", "AppManagerPluginIsolated.js")
+    destDirPlugin = os.path.join(RUNTIME_DIR_PATH, "platforms", "electron", "platform_www", "plugins", "elastos-trinity-plugins-appmanager", "src", "electron")
+    if osSystem == "win32":
+        run_cmd("copy "+srcRenderer+" "+destDirRenderer)
+        run_cmd("copy "+srcPreload+" "+destDirPreload)
+        run_cmd("copy "+srcPlugin+" "+destDirPlugin)
+    else:
+        run_cmd("cp "+srcRenderer+" "+destDirRenderer)
+        run_cmd("cp "+srcPreload+" "+destDirPreload)
+        run_cmd("cp "+srcPlugin+" "+destDirPlugin)
+
+# Temporary solution for the javascript logo error
+def fix_electron_logo():
+    filename = os.path.join(RUNTIME_DIR_PATH, "platforms", "electron", "platform_www", "cdv-electron-main.js")
+    fin = open(filename, "rt")
+    data = fin.read()
+    data = data.replace('appIcon = `${__dirname}/img/logo.png`;', '//appIcon = `${__dirname}/img/logo.png`;')
+    fin.close()
+    fin = open(filename, "wt")
+    fin.write(data)
+    fin.close()
+
+# Temporary solution for the splashscreen logo error
+def fix_splashscreen_logo():
+    filename = os.path.join(RUNTIME_DIR_PATH, "platforms", "electron", "www", "plugins", "cordova-plugin-splashscreen", "src", "browser", "SplashScreenProxy.js")
+    fin = open(filename, "rt")
+    data = fin.read()
+    data = data.replace('localSplashImage.src = imageSrc;', '//localSplashImage.src = imageSrc;')
+    fin.close()
+    fin = open(filename, "wt")
+    fin.write(data)
+    fin.close()
+
+# Solve missing config.xml in launcher
+def copy_missing_config():
+    srcConfig = os.path.join(RUNTIME_DIR_PATH, "platforms", "electron", "www", "config.xml")
+    destDirConfig = os.path.join(RUNTIME_DIR_PATH, "platforms", "electron", "www", "launcher")
+    if osSystem == "win32":
+        run_cmd("copy "+srcConfig+" "+destDirConfig)
+    else:
+        run_cmd("cp "+srcConfig+" "+destDirConfig)
+
 startTime = timeit.default_timer()
 
 if TOOLCHAINS_DIR_NAME != "ToolChains" or \
@@ -264,20 +343,37 @@ if args.target == "partners":
 
 if args.target == "all" or args.target == "launcher" or args.target == "runtime":
     os.chdir(RUNTIME_DIR_PATH)
+    print("BUILD START")
+
     copy_tree("www_files", "www", False)
     ela_plugin.plugin_prepare(True)
     run_cmd("npm install")
+    if build_platform == "all" or build_platform == "electron":
+        fix_electron_path()
+        install_and_copy_plugin()
+        run_cmd("cordova platform add electron")
+        copy_renderer_files()
+    
+    fix_electron_logo()
     run_cmd("cordova prepare")
+    fix_splashscreen_logo()
+    copy_missing_config()
     add_firebase()
     # Remove ionic wallet app from built-in only for ios
     #run_cmd("cd platforms/ios/www/built-in/org.elastos.trinity.dapp.wallet && ls | grep -v 'assets' | xargs rm -rf", True)
     os.chdir(RUNTIME_DIR_PATH)
+
+    #creating package is temporary turned off
+    """
     if build_platform == "all" or build_platform == "android":
         run_cmd("cordova build android " + build_type + " " + build_arg)
     if build_platform == "all" or build_platform == "ios":
         run_cmd("cordova build ios " + build_type + " " + build_arg)
     if build_platform == "all" or build_platform == "electron":
         run_cmd("cordova build electron " + build_type + " " + build_arg)
+    """
+    print("BUILD DONE")
+    print("'cd Runtime/platforms/electron/www', then 'electron .' to start in dev mode")
 
 elapsed = timeit.default_timer() - startTime
 minutes = elapsed / 60

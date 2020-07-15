@@ -12,6 +12,8 @@ PLUGIN_DIR_PATH=os.path.join(PROJECT_DIR_PATH, "Plugins")
 RT_PLUGIN_DIR_PATH=os.path.join(PROJECT_DIR_PATH, "Runtime/plugin_src")
 RUNTIME_PLUGIN_PATH=os.path.join(RUNTIME_DIR_PATH, "plugins")
 
+osSystem=sys.platform
+
 def run_cmd(cmd, ignore_error=False):
     print("Running: " + cmd)
     ret = subprocess.call(cmd, shell=True)
@@ -89,13 +91,25 @@ def re_install_plugin(plugindir, restore = True):
 def backup_files():
     os.chdir(RUNTIME_DIR_PATH)
     if not os.path.isfile(os.path.join(RUNTIME_DIR_PATH + '/config.xml.buildbak')):
-        run_cmd('cp config.xml config.xml.buildbak')
+        if osSystem=="win32":
+            run_cmd('copy config.xml config.xml.buildbak')
+        else:
+            run_cmd('cp config.xml config.xml.buildbak')
     if not os.path.isfile(os.path.join(RUNTIME_DIR_PATH + '/package.json.buildbak')):
-        run_cmd('cp package.json package.json.buildbak')
-
+        if osSystem=="win32":
+            run_cmd('copy package.json package.json.buildbak')
+        else:
+            run_cmd('cp package.json package.json.buildbak')
+        
 def restore_files():
     os.chdir(RUNTIME_DIR_PATH)
     if os.path.isfile(os.path.join(RUNTIME_DIR_PATH + '/config.xml.buildbak')):
-        run_cmd('mv config.xml.buildbak config.xml')
+        if osSystem=="win32":
+            run_cmd('move config.xml.buildbak config.xml')
+        else:
+            run_cmd('mv config.xml.buildbak config.xml')
     if os.path.isfile(os.path.join(RUNTIME_DIR_PATH + '/package.json.buildbak')):
-        run_cmd('mv package.json.buildbak package.json')
+        if osSystem=="win32":
+            run_cmd('move package.json.buildbak package.json')
+        else:
+            run_cmd('mv package.json.buildbak package.json')
