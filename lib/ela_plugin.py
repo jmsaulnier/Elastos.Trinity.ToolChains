@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 from xml.dom import minidom
+import shutil
 
 SCRIPT_PATH=os.path.realpath(__file__)
 TOOLCHAINS_DIR_PATH=os.path.dirname(os.path.dirname(SCRIPT_PATH))
@@ -12,7 +13,10 @@ PLUGIN_DIR_PATH=os.path.join(PROJECT_DIR_PATH, "Plugins")
 RT_PLUGIN_DIR_PATH=os.path.join(PROJECT_DIR_PATH, "Runtime/plugin_src")
 RUNTIME_PLUGIN_PATH=os.path.join(RUNTIME_DIR_PATH, "plugins")
 
-osSystem=sys.platform
+ELECTRON_DIR_PATH=os.path.join(RUNTIME_DIR_PATH, "platform_src/electron")
+ELECTRON_TITLERBAR_DIR_PATH=os.path.join(ELECTRON_DIR_PATH, "titlebar")
+ELECTRON_MAIN_DIR_PATH=os.path.join(ELECTRON_DIR_PATH, "main")
+ELECTRON_RENDERER_DIR_PATH=os.path.join(ELECTRON_DIR_PATH, "renderer")
 
 def run_cmd(cmd, ignore_error=False):
     print("Running: " + cmd)
@@ -91,25 +95,70 @@ def re_install_plugin(plugindir, restore = True):
 def backup_files():
     os.chdir(RUNTIME_DIR_PATH)
     if not os.path.isfile(os.path.join(RUNTIME_DIR_PATH + '/config.xml.buildbak')):
-        if osSystem=="win32":
+        if isWindows():
             run_cmd('copy config.xml config.xml.buildbak')
         else:
             run_cmd('cp config.xml config.xml.buildbak')
     if not os.path.isfile(os.path.join(RUNTIME_DIR_PATH + '/package.json.buildbak')):
-        if osSystem=="win32":
+        if isWindows():
             run_cmd('copy package.json package.json.buildbak')
         else:
             run_cmd('cp package.json package.json.buildbak')
-        
+
 def restore_files():
     os.chdir(RUNTIME_DIR_PATH)
     if os.path.isfile(os.path.join(RUNTIME_DIR_PATH + '/config.xml.buildbak')):
-        if osSystem=="win32":
+        if isWindows():
             run_cmd('move config.xml.buildbak config.xml')
         else:
             run_cmd('mv config.xml.buildbak config.xml')
     if os.path.isfile(os.path.join(RUNTIME_DIR_PATH + '/package.json.buildbak')):
-        if osSystem=="win32":
+        if isWindows():
             run_cmd('move package.json.buildbak package.json')
         else:
             run_cmd('mv package.json.buildbak package.json')
+
+def isWindows():
+    return sys.platform == "win32"
+
+def install_titlebar():
+    os.chdir(ELECTRON_TITLERBAR_DIR_PATH)
+    run_cmd('npm install')
+    run_cmd("ionic build --prod")
+
+# moved from before_prepare script
+def copy_electron_files():
+    os.chdir(RUNTIME_DIR_PATH)
+
+    pluginFile="AppManagerPluginMain.ts"
+    pluginsMainPath="platform_src/electron/main/plugins_main"
+    if not os.path.isdir(pluginsMainPath):
+        os.mkdir(pluginsMainPath)
+    if not os.path.isfile(pluginsMainPath+"/"+pluginFile):
+        shutil.copy2("plugin_src/AppManager/src/electron/"+pluginFile, pluginsMainPath)
+
+    build_electron_files()
+    shutil.copy2(ELECTRON_RENDERER_DIR_PATH+"/dapp_preload.js", "platforms/electron/platform_www")
+
+    platformPluginPath="platforms/electron/platform_www/plugins/elastos-trinity-plugins-appmanager/src/electron"
+    if not os.path.isdir(platformPluginPath):
+        os.makedirs(platformPluginPath)
+    shutil.copy2(RT_PLUGIN_DIR_PATH+"/AppManager/src/electron/AppManagerPluginIsolated.js", platformPluginPath)
+
+def build_electron_files():
+    os.chdir(ELECTRON_MAIN_DIR_PATH)
+    run_cmd("tsc --build tsconfig.json --force")
+    os.chdir(RUNTIME_DIR_PATH)
+
+def install_electron():
+    os.chdir(RUNTIME_DIR_PATH)
+    if not os.path.isdir("platforms/electron"):
+        run_cmd("cordova platform rm electron")
+        run_cmd("cordova platform add electron@2.0.0-nightly.2020.7.18.d6fbdb83", True)
+
+
+
+
+
+
+    
