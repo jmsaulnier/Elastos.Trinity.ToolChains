@@ -130,20 +130,28 @@ def install_titlebar():
 def copy_electron_files():
     os.chdir(RUNTIME_DIR_PATH)
 
-    pluginFile="AppManagerPluginMain.ts"
-    pluginsMainPath="platform_src/electron/main/plugins_main"
-    if not os.path.isdir(pluginsMainPath):
-        os.mkdir(pluginsMainPath)
-    if not os.path.isfile(pluginsMainPath+"/"+pluginFile):
-        shutil.copy2("plugin_src/AppManager/src/electron/"+pluginFile, pluginsMainPath)
-
     build_electron_files()
-    shutil.copy2(ELECTRON_RENDERER_DIR_PATH+"/dapp_preload.js", "platforms/electron/platform_www")
+    shutil.copy2(ELECTRON_RENDERER_DIR_PATH + "/dapp_preload.js", "platforms/electron/platform_www")
 
-    platformPluginPath="platforms/electron/platform_www/plugins/elastos-trinity-plugins-appmanager/src/electron"
+    copy_electron_plugin("AppManager")
+    copy_electron_plugin("TitleBarManager")
+    
+
+def copy_electron_plugin(pluginName):
+    pluginPathName = ""
+    pluginIsolatedName = ""
+
+    if pluginName == "AppManager":
+        pluginPathName = "elastos-trinity-plugins-appmanager"
+        pluginIsolatedName = "AppManagerPluginIsolated.js"
+    elif pluginName == "TitleBarManager":
+        pluginPathName = "elastos-trinity-plugins-titlebarmanager"
+        pluginIsolatedName = "TitleBarManagerPluginIsolated.js"
+
+    platformPluginPath = "platforms/electron/platform_www/plugins/" + pluginPathName + "/src/electron"
     if not os.path.isdir(platformPluginPath):
         os.makedirs(platformPluginPath)
-    shutil.copy2(RT_PLUGIN_DIR_PATH+"/AppManager/src/electron/AppManagerPluginIsolated.js", platformPluginPath)
+    shutil.copy2(RT_PLUGIN_DIR_PATH + "/" + pluginName + "/src/electron/" + pluginIsolatedName, platformPluginPath)
 
 def build_electron_files():
     os.chdir(ELECTRON_MAIN_DIR_PATH)
