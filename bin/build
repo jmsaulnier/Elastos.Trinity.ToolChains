@@ -72,6 +72,7 @@ PLUGIN_DIR_PATH=os.path.join(PROJECT_DIR_PATH, "Plugins")
 BUILT_IN_MIRROR_ANDROID=os.path.join(RUNTIME_DIR_PATH, "platforms/android/app/src/main/assets/www/built-in/")
 BUILT_IN_MIRROR_IOS=os.path.join(RUNTIME_DIR_PATH, "platforms/ios/www/built-in/")
 BUILT_IN_MIRROR_ELECTRON=os.path.join(RUNTIME_DIR_PATH, "platforms/electron/www/built-in/")
+TITLEBAR_DIR_PATH=os.path.join(RUNTIME_DIR_PATH, "platform_src/electron/titlebar")
 
 def run_cmd(cmd, ignore_error=False):
     print("Running: " + cmd)
@@ -318,6 +319,10 @@ if args.target == "all" or args.target == "launcher" or args.target == "runtime"
         ela_plugin.install_electron()
         ela_plugin.copy_electron_files()
         ela_plugin.install_titlebar()
+        os.chdir(TITLEBAR_DIR_PATH)
+        copy_tree("www", RUNTIME_DIR_PATH + "/www/shared-titlebar")
+        os.chdir(RUNTIME_DIR_PATH)
+        copy_tree("plugin_src", "www/plugin_src")
 
     run_cmd("cordova prepare")
     add_firebase()
@@ -335,9 +340,10 @@ if args.target == "all" or args.target == "launcher" or args.target == "runtime"
         run_cmd("cordova build android " + build_type + " " + build_arg)
     if build_platform == "all" or build_platform == "ios":
         run_cmd("cordova build ios " + build_type + " " + build_arg)
+    """
     if build_platform == "all" or build_platform == "electron":
         run_cmd("cordova build electron " + build_type + " " + build_arg)
-    """
+    
 
 elapsed = timeit.default_timer() - startTime
 minutes = elapsed / 60
