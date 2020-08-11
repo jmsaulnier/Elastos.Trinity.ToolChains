@@ -145,6 +145,8 @@ def add_firebase():
     if sys != "Darwin":
         run_cmd("cordova platform rm ios")
 
+    run_cmd("npm install -g xml-js")
+
     cmd="cordova plugin add cordova-plugin-firebasex"
     run_cmd(cmd)
 
