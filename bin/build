@@ -22,7 +22,7 @@ else:
 
 parser = argparse.ArgumentParser(description='Build the Elastor.Trinity project.',
                                  formatter_class=argparse.RawTextHelpFormatter)
-parser.add_argument('target', metavar='TARGET', choices=['all', 'clean', 'clobber','dapp', 'launcher', "partner", "partners", "plugin", "runtime"],
+parser.add_argument('target', metavar='TARGET', choices=['all', 'clean', 'clobber','dapp', 'launcher', "partner", "partners", "plugin", "runtime", "tsc", "npm"],
                     help=textwrap.dedent('''\
                          Specify the target to build.
                          all: build all module: launcher, dapp, runtime;
@@ -138,6 +138,8 @@ def add_firebase():
     if not os.path.isfile(os.path.join(RUNTIME_DIR_PATH + '/google-services.json')):
         print("Can not find google-services.json!")
         return
+
+    run_cmd("npm install -g xml-js")
 
     cmd="cordova plugin add cordova-plugin-firebasex"
     run_cmd(cmd)
@@ -306,16 +308,25 @@ if args.target == "partners":
     else:
         build_partnerapps(build_platform)
 
-if args.target == "all" or args.target == "launcher" or args.target == "runtime":
-#if args.target == "all" or args.target == "runtime":
-    
+if args.target == "tsc":
     os.chdir(RUNTIME_DIR_PATH)
-    
-    copy_tree("www_files", "www", False)
     ela_plugin.plugin_prepare(True)
+
+if args.target == "npm":
+    os.chdir(RUNTIME_DIR_PATH)
     run_cmd("npm install")
 
+if args.target == "all" or args.target == "launcher" or args.target == "runtime":
+#if args.target == "all" or args.target == "runtime":
+
+    os.chdir(RUNTIME_DIR_PATH)
+
+    # copy_tree("www_files", "www", False)
+    # ela_plugin.plugin_prepare(True)
+    # run_cmd("npm install")
+
     if build_platform == "all" or build_platform == "electron":
+        print('install electron')
         ela_plugin.install_electron()
         ela_plugin.copy_electron_files()
         ela_plugin.install_titlebar()
@@ -329,7 +340,7 @@ if args.target == "all" or args.target == "launcher" or args.target == "runtime"
     # Remove ionic wallet app from built-in only for ios
     #run_cmd("cd platforms/ios/www/built-in/org.elastos.trinity.dapp.wallet && ls | grep -v 'assets' | xargs rm -rf", True)
     os.chdir(RUNTIME_DIR_PATH)
-    
+
     print("BUILD SUCCESS")
     print("'cd Runtime/platforms/electron/www', to start in dev mode -> enter:")
     print("windows: 'electron .'")
@@ -343,7 +354,7 @@ if args.target == "all" or args.target == "launcher" or args.target == "runtime"
     """
     if build_platform == "all" or build_platform == "electron":
         run_cmd("cordova build electron " + build_type + " " + build_arg)
-    
+
 
 elapsed = timeit.default_timer() - startTime
 minutes = elapsed / 60
