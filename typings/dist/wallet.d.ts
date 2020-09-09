@@ -67,10 +67,16 @@ declare module WalletPlugin {
         maxType
     }
 
-    interface WalletManager {
-        // TODO: define types for all arguments and callback parameters
-        // print(args, success, error);
+    const enum EthereumAmountUnit {
+        TOKEN_DECIMAL = 0,
+        TOKEN_INTEGER = 1,
 
+        ETHER_WEI = 0,
+        ETHER_GWEI = 3,
+        ETHER_ETHER = 6,
+    }
+
+    interface WalletManager {
         //MasterWalletManager
 
         /**
@@ -268,6 +274,14 @@ declare module WalletPlugin {
          * @param newPassword new pay password.
          */
         changePassword(args, success, error);
+
+        /**
+         * Reset payment password of current wallet
+         * @param mnemonic mnemonic
+         * @param passphrase passphrase
+         * @param newPassword New password will be set.
+         */
+        resetPassword(args, success, error);
 
 
         //SubWallet
@@ -560,6 +574,32 @@ declare module WalletPlugin {
          */
         getPublicKeyCID(args, success, error);
 
+        //ETHSideChainSubWallet
+
+        /**
+         *
+         * @param masterWalletID is the unique identification of a master wallet object.
+         * @param targetAddress
+         * @param amount
+         * @param amountUnit
+         * @return
+         */
+        createTransfer(args, success, error);
+
+        /**
+         *
+         * @param masterWalletID is the unique identification of a master wallet object.
+         * @param targetAddress
+         * @param amount
+         * @param amountUnit
+         * @param gasPrice
+         * @param gasPriceUnit
+         * @param gasLimit
+         * @param data
+         * @return
+         */
+        createTransferGeneric(args, success, error);
+
         //MainchainSubWallet
 
         /**
@@ -846,6 +886,28 @@ declare module WalletPlugin {
          * { "Status": "ReturnDeposit", "Info": null }
          */
         getRegisteredCRInfo(args, success, error);
+
+        /**
+         * Generate digest for signature of CR council members
+         * @param payload
+         * {
+         *   "NodePublicKey": "...",
+         *   "CRCouncilMemberDID": "...",
+         * }
+         * @return
+         */
+        CRCouncilMemberClaimNodeDigest(args, success, error);
+
+        /**
+         * @param payload
+         * {
+         *   "NodePublicKey": "...",
+         *   "CRCouncilMemberDID": "...",
+         *   "CRCouncilMemberSignature": "..."
+         * }
+         * @return
+         */
+        createCRCouncilMemberClaimNodeTransaction(args, success, error);
 
         /**
          * Create vote cr transaction.
@@ -1199,6 +1261,8 @@ declare module WalletPlugin {
          * {
          *   "ProposalHash": "7c5d2e7cfd7d4011414b5ddb3ab43e2aca247e342d064d1091644606748d7513",
          *   "OwnerPublicKey": "02c632e27b19260d80d58a857d2acd9eb603f698445cc07ba94d52296468706331",
+         *   "Recipient": "EPbdmxUVBzfNrVdqJzZEySyWGYeuKAeKqv", // address
+	     *   "Amount": "100000000", // 1 ela = 100000000 sela
          * }
          *
          * @return Digest of payload.
@@ -1207,26 +1271,14 @@ declare module WalletPlugin {
 
         /**
          * Create proposal withdraw transaction.
-         * Note: This tx does not need to be signed.
-         *
          * @param masterWalletID is the unique identification of a master wallet object.
          * @param chainID unique identity of a sub wallet. Chain id should not be empty.
-         * @param recipient Recipient of proposal.
-         * @param amount Withdraw amount.
-         * @param utxo UTXO json array of address CREXPENSESXXXXXXXXXXXXXXXXXX4UdT6b.
-         * [{
-         *   "Hash": "7c5d2e7cfd7d4011414b5ddb3ab43e2aca247e342d064d1091644606748d7513",
-         *   "Index": 0,
-         *   "Amount": "100000000",   // 1 ela = 100000000 sela
-         * },{
-         *   "Hash": "7c5d2e7cfd7d4011414b5ddb3ab43e2aca247e342d064d1091644606748d7513",
-         *   "Index": 2,
-         *   "Amount": "200000000",   // 2 ela = 200000000 sela
-         * }]
          * @param payload Proposal payload.
          * {
          *   "ProposalHash": "7c5d2e7cfd7d4011414b5ddb3ab43e2aca247e342d064d1091644606748d7513",
          *   "OwnerPublicKey": "02c632e27b19260d80d58a857d2acd9eb603f698445cc07ba94d52296468706331",
+         *   "Recipient": "EPbdmxUVBzfNrVdqJzZEySyWGYeuKAeKqv", // address
+         *   "Amount": "100000000", // 1 ela = 100000000 sela
          *   "Signature": "9a24a084a6f599db9906594800b6cb077fa7995732c575d4d125c935446c93bbe594ee59e361f4d5c2142856c89c5d70c8811048bfb2f8620fbc18a06cb58109"
          * }
          *
