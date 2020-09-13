@@ -134,8 +134,10 @@ def copy_electron_files():
     shutil.copy2(ELECTRON_RENDERER_DIR_PATH + "/dapp_preload.js", "platforms/electron/platform_www")
 
     copy_electron_plugin("AppManager")
+    copy_electron_plugin("DIDSessionManager")
+    copy_electron_plugin("NotificationManager")
+    copy_electron_plugin("PasswordManager")
     copy_electron_plugin("TitleBarManager")
-    
 
 def copy_electron_plugin(pluginName):
     pluginPathName = ""
@@ -144,9 +146,20 @@ def copy_electron_plugin(pluginName):
     if pluginName == "AppManager":
         pluginPathName = "elastos-trinity-plugins-appmanager"
         pluginIsolatedName = "AppManagerPluginIsolated.js"
+    elif pluginName == "DIDSessionManager":
+        pluginPathName = "elastos-trinity-plugins-didsessionmanager"
+        pluginIsolatedName = "DIDSessionManagerPluginIsolated.js"
+    elif pluginName == "NotificationManager":
+        pluginPathName = "elastos-trinity-plugins-notificationmanager"
+        pluginIsolatedName = "NotificationManagerPluginIsolated.js"
+    elif pluginName == "PasswordManager":
+        pluginPathName = "elastos-trinity-plugins-passwordmanager"
+        pluginIsolatedName = "PasswordManagerPluginIsolated.js"
     elif pluginName == "TitleBarManager":
         pluginPathName = "elastos-trinity-plugins-titlebarmanager"
         pluginIsolatedName = "TitleBarManagerPluginIsolated.js"
+    
+    
 
     platformPluginPath = "platforms/electron/platform_www/plugins/" + pluginPathName + "/src/electron"
     if not os.path.isdir(platformPluginPath):
@@ -162,7 +175,7 @@ def install_electron():
     os.chdir(RUNTIME_DIR_PATH)
     if not os.path.isdir("platforms/electron"):
         run_cmd("cordova platform rm electron")
-        run_cmd("cordova platform add electron@2.0.0-nightly.2020.7.18.d6fbdb83", True)
+        run_cmd("cordova platform add electron@2.0.0-nightly.2020.9.12.734bbe7c", True)
 
 
 

@@ -67,10 +67,16 @@ declare module WalletPlugin {
         maxType
     }
 
-    interface WalletManager {
-        // TODO: define types for all arguments and callback parameters
-        print(args, success, error);
+    const enum EthereumAmountUnit {
+        TOKEN_DECIMAL = 0,
+        TOKEN_INTEGER = 1,
 
+        ETHER_WEI = 0,
+        ETHER_GWEI = 3,
+        ETHER_ETHER = 6,
+    }
+
+    interface WalletManager {
         //MasterWalletManager
 
         /**
@@ -216,11 +222,35 @@ declare module WalletPlugin {
         exportWalletWithMnemonic(args, success, error);
 
         /**
+         * Verify passphrase and pay password whether same as current wallet.
+         * @param masterWalletID is the unique identification of a master wallet object.
+         * @param passphrase password for  mnemonic. Passphrase should between 8 and 128.
+         * @param payPassword password for transaction. Pay password should between 8 and 128.
+         * @return If success will return the mnemonic of master wallet.
+         */
+        verifyPassPhrase(args, success, error);
+
+        /**
+         * Verify pay password whether same as current wallet.
+         * @param masterWalletID is the unique identification of a master wallet object.
+         * @param payPassword password for transaction. Pay password should between 8 and 128.
+         * @return If success will return the mnemonic of master wallet.
+         */
+        verifyPayPassword(args, success, error);
+
+        /**
          * Destroy a sub wallet created by the master wallet.
          * @param masterWalletID is the unique identification of a master wallet object.
          * @param chainID chain ID of subWallet.
          */
         destroySubWallet(args, success, error);
+
+        /**
+         * Get public key info.
+         * @param masterWalletID is the unique identification of a master wallet object.
+         * @return public key info.
+         */
+        getPubKeyInfo(args, success, error);
 
         /**
          * Verify an address which can be normal, multi-sign, cross chain, or id address.
@@ -245,6 +275,14 @@ declare module WalletPlugin {
          */
         changePassword(args, success, error);
 
+        /**
+         * Reset payment password of current wallet
+         * @param mnemonic mnemonic
+         * @param passphrase passphrase
+         * @param newPassword New password will be set.
+         */
+        resetPassword(args, success, error);
+
 
         //SubWallet
 
@@ -261,6 +299,14 @@ declare module WalletPlugin {
          * @param chainID unique identity of a sub wallet. Chain id should not be empty.
          */
         syncStop(args, success, error);
+
+        /**
+         * Will delete all Merkle blocks and all transactions except the private key.
+         * And then resync from the beginning.
+         * @param masterWalletID is the unique identification of a master wallet object.
+         * @param chainID unique identity of a sub wallet. Chain id should not be empty.
+         */
+        reSync(args, success, error);
 
         /**
          * Get balances of all addresses in json format.
@@ -326,7 +372,7 @@ declare module WalletPlugin {
          * @param masterWalletID is the unique identification of a master wallet object.
          * @param chainID unique identity of a sub wallet. Chain id should not be empty.
          * @param fromAddress specify which address we want to spend, or just input empty string to let wallet choose UTXOs automatically.
-         * @param toAddress specify which address we want to send.
+         * @param targetAddress specify which address we want to send.
          * @param amount specify amount we want to send. "-1" means max.
          * @param memo input memo attribute for describing.
          * @return If success return the content of transaction in json format.
@@ -357,7 +403,7 @@ declare module WalletPlugin {
          * Sign a transaction or append sign to a multi-sign transaction and return the content of transaction in json format.
          * @param masterWalletID is the unique identification of a master wallet object.
          * @param chainID unique identity of a sub wallet. Chain id should not be empty.
-         * @param createdTx content of transaction in json format.
+         * @param tx transaction created by Create*Transaction().
          * @param payPassword use to decrypt the root private key temporarily. Pay password should between 8 and 128, otherwise will throw invalid argument exception.
          * @return If success return the content of transaction in json format.
          */
@@ -375,13 +421,13 @@ declare module WalletPlugin {
          * [{"SignType":"Standard","Signers":["0207d8bc14c4bdd79ea4a30818455f705bcc9e17a4b843a5f8f4a95aa21fb03d77"]},{"SignType":"Standard","Signers":["02a58d1c4e4993572caf0133ece4486533261e0e44fb9054b1ea7a19842c35300e"]}]
          *
          */
-        getTransactionSignedSigners(args, success, error);
+        getTransactionSignedInfo(args, success, error);
 
         /**
          * Publish a transaction to p2p network.
          * @param masterWalletID is the unique identification of a master wallet object.
          * @param chainID unique identity of a sub wallet. Chain id should not be empty.
-         * @param signedTx content of transaction in json format.
+         * @param tx signed transaction.
          * @return Sent result in json format.
          */
         publishTransaction(args, success, error);
@@ -401,17 +447,20 @@ declare module WalletPlugin {
 
         /**
          * Add a sub wallet callback object listened to current sub wallet.
-         * @param masterWalletID is the unique identification of a master wallet object.
-         * @param chainID unique identity of a sub wallet. Chain id should not be empty.
          */
         registerWalletListener(args, success, error);
 
         /**
          * Remove a sub wallet callback object listened to current sub wallet.
-         * @param masterWalletID is the unique identification of a master wallet object.
-         * @param chainID unique identity of a sub wallet. Chain id should not be empty.
          */
         removeWalletListener(args, success, error);
+
+        /**
+         * Get last block information including "Height", "Timestamp", "Hash"
+         * @return information in json format.
+         */
+        getLastBlockInfo(args, success, error);
+
 
         // sideChainSubWallet
 
@@ -524,6 +573,32 @@ declare module WalletPlugin {
          * @return cid string
          */
         getPublicKeyCID(args, success, error);
+
+        //ETHSideChainSubWallet
+
+        /**
+         *
+         * @param masterWalletID is the unique identification of a master wallet object.
+         * @param targetAddress
+         * @param amount
+         * @param amountUnit
+         * @return
+         */
+        createTransfer(args, success, error);
+
+        /**
+         *
+         * @param masterWalletID is the unique identification of a master wallet object.
+         * @param targetAddress
+         * @param amount
+         * @param amountUnit
+         * @param gasPrice
+         * @param gasPriceUnit
+         * @param gasLimit
+         * @param data
+         * @return
+         */
+        createTransferGeneric(args, success, error);
 
         //MainchainSubWallet
 
@@ -813,6 +888,28 @@ declare module WalletPlugin {
         getRegisteredCRInfo(args, success, error);
 
         /**
+         * Generate digest for signature of CR council members
+         * @param payload
+         * {
+         *   "NodePublicKey": "...",
+         *   "CRCouncilMemberDID": "...",
+         * }
+         * @return
+         */
+        CRCouncilMemberClaimNodeDigest(args, success, error);
+
+        /**
+         * @param payload
+         * {
+         *   "NodePublicKey": "...",
+         *   "CRCouncilMemberDID": "...",
+         *   "CRCouncilMemberSignature": "..."
+         * }
+         * @return
+         */
+        createCRCouncilMemberClaimNodeTransaction(args, success, error);
+
+        /**
          * Create vote cr transaction.
          * @param masterWalletID is the unique identification of a master wallet object.
          * @param chainID unique identity of a sub wallet. Chain id should not be empty.
@@ -1025,6 +1122,15 @@ declare module WalletPlugin {
         proposalCRCouncilMemberDigest(args, success, error);
 
         /**
+         * Calculate proposal hash.
+         * @param masterWalletID is the unique identification of a master wallet object.
+         * @param chainID unique identity of a sub wallet. Chain id should not be empty.
+         * @param payload Proposal payload signed by owner and CR committee. Same as payload of CreateProposalTransaction()
+         * @return The transaction in JSON format to be signed and published.
+         */
+        calculateProposalHash(args, success, error);
+
+        /**
          * Create CRC Proposal transaction.
          * @param masterWalletID is the unique identification of a master wallet object.
          * @param chainID unique identity of a sub wallet. Chain id should not be empty.
@@ -1155,6 +1261,8 @@ declare module WalletPlugin {
          * {
          *   "ProposalHash": "7c5d2e7cfd7d4011414b5ddb3ab43e2aca247e342d064d1091644606748d7513",
          *   "OwnerPublicKey": "02c632e27b19260d80d58a857d2acd9eb603f698445cc07ba94d52296468706331",
+         *   "Recipient": "EPbdmxUVBzfNrVdqJzZEySyWGYeuKAeKqv", // address
+	     *   "Amount": "100000000", // 1 ela = 100000000 sela
          * }
          *
          * @return Digest of payload.
@@ -1163,26 +1271,14 @@ declare module WalletPlugin {
 
         /**
          * Create proposal withdraw transaction.
-         * Note: This tx does not need to be signed.
-         *
          * @param masterWalletID is the unique identification of a master wallet object.
          * @param chainID unique identity of a sub wallet. Chain id should not be empty.
-         * @param recipient Recipient of proposal.
-         * @param amount Withdraw amount.
-         * @param utxo UTXO json array of address CREXPENSESXXXXXXXXXXXXXXXXXX4UdT6b.
-         * [{
-         *   "Hash": "7c5d2e7cfd7d4011414b5ddb3ab43e2aca247e342d064d1091644606748d7513",
-         *   "Index": 0,
-         *   "Amount": "100000000",   // 1 ela = 100000000 sela
-         * },{
-         *   "Hash": "7c5d2e7cfd7d4011414b5ddb3ab43e2aca247e342d064d1091644606748d7513",
-         *   "Index": 2,
-         *   "Amount": "200000000",   // 2 ela = 200000000 sela
-         * }]
          * @param payload Proposal payload.
          * {
          *   "ProposalHash": "7c5d2e7cfd7d4011414b5ddb3ab43e2aca247e342d064d1091644606748d7513",
          *   "OwnerPublicKey": "02c632e27b19260d80d58a857d2acd9eb603f698445cc07ba94d52296468706331",
+         *   "Recipient": "EPbdmxUVBzfNrVdqJzZEySyWGYeuKAeKqv", // address
+         *   "Amount": "100000000", // 1 ela = 100000000 sela
          *   "Signature": "9a24a084a6f599db9906594800b6cb077fa7995732c575d4d125c935446c93bbe594ee59e361f4d5c2142856c89c5d70c8811048bfb2f8620fbc18a06cb58109"
          * }
          *

@@ -241,6 +241,7 @@ declare module DIDPlugin {
 
         sign(storePass: string, originString: string, onSuccess: (data: any)=>void, onError?: (err: any)=>void);  // TODO: What is "originString" ?
         verify(signString: string, originString: string, onSuccess: (data: any)=>void, onError?: (err: any)=>void);
+        signDigest(storePass: string, digest: string, onSuccess: (data: any)=>void, onError?: (err: any)=>void);
 
         /**
          * Initiate a DID document publication process from the local device to the DID sidechain.
@@ -257,6 +258,11 @@ declare module DIDPlugin {
          * @param validityDays Number of Days at which the JWT will become invalid.
          */
         createJWT(properties: any, validityDays: Number, storepass: string, onSuccess: (token: string)=>void, onError?: (err: any)=>void);
+
+        /**
+         * JSON string representation of this DID document.
+         */
+        toJson(): Promise<string>;
     }
 
     interface VerifiablePresentationBuilder {
@@ -272,6 +278,11 @@ declare module DIDPlugin {
         getCredentials(): VerifiableCredential[];
         isValid(onSuccess: (isValid: boolean)=>void, onError?: (err: any)=>void);
         isGenuine(onSuccess: (isValid: boolean)=>void, onError?: (err: any)=>void);
+
+        /**
+         * JSON string representation of this presentation.
+         */
+        toJson(): Promise<string>;
     }
 
     interface DIDStore {
@@ -319,7 +330,9 @@ declare module DIDPlugin {
         /** Whether the JWT signature was signed by a DID and verified successfully or not. False if shouldVerifySignature is false. */
         signatureIsValid: boolean;
         /** Raw JSON data extracted from the JWT */
-        payload: Object
+        payload: Object;
+        /** Possibly more details about the reason why the JWT is invalid. */
+        errorReason?: string;
     }
 
     interface DIDManager {

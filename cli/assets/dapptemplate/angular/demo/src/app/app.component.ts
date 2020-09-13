@@ -1,7 +1,8 @@
 import { Component, ViewChild } from '@angular/core';
-import { Platform, IonRouterOutlet } from '@ionic/angular';
+import { Platform, IonRouterOutlet, NavController } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { DAppService } from './services/dapp.service';
+import { TitlebarService } from './services/titlebar.service';
 
 @Component({
   selector: 'my-app',
@@ -10,14 +11,23 @@ import { DAppService } from './services/dapp.service';
 export class MyApp {
   @ViewChild(IonRouterOutlet, {static: true}) routerOutlet: IonRouterOutlet;
 
-  constructor(private platform: Platform, router: Router, dappService: DAppService) {
-    platform.ready().then(async () => {
+  constructor(
+    private platform: Platform, 
+    private navController: NavController, 
+    private dappService: DAppService,
+    private titlebarService: TitlebarService
+  ) {
+    this.initializeApp();
+  }
+
+  initializeApp() {
+    this.platform.ready().then(async () => {
       // Make sure to wait for platform to be ready before navigating to the first screen. Otherwise
       // plugins such as AppManager or TitleBarManager are not ready.
 
-      dappService.init();
-
-      router.navigate(["home"]);
+      this.dappService.init();
+      this.titlebarService.init();
+      this.navController.navigateRoot("/home");
     });
   }
 

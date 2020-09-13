@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { AppmanagerService } from 'src/app/services/appmanager.service';
+import { TitlebarService } from 'src/app/services/titlebar.service';
 
 declare let titleBarManager: TitleBarPlugin.TitleBarManager;
 
@@ -11,7 +12,8 @@ declare let titleBarManager: TitleBarPlugin.TitleBarManager;
 export class AppmanagerPage implements OnInit {
 
   constructor(
-    public appManagerService: AppmanagerService
+    public appManagerService: AppmanagerService,
+    private titlebarService: TitlebarService
   ) { }
 
   ngOnInit() {
@@ -19,6 +21,10 @@ export class AppmanagerPage implements OnInit {
 
   ionViewWillEnter() {
     titleBarManager.setTitle("App Manager Guide");
-    titleBarManager.setNavigationMode(TitleBarPlugin.TitleBarNavigationMode.BACK);
+    this.titlebarService.setTitleBarBackKeyShown(true);
+  }
+
+  ionViewWillLeave() {
+    this.titlebarService.setTitleBarBackKeyShown(false);
   }
 }
