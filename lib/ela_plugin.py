@@ -17,6 +17,7 @@ ELECTRON_DIR_PATH=os.path.join(RUNTIME_DIR_PATH, "platform_src/electron")
 ELECTRON_TITLERBAR_DIR_PATH=os.path.join(ELECTRON_DIR_PATH, "titlebar")
 ELECTRON_MAIN_DIR_PATH=os.path.join(ELECTRON_DIR_PATH, "main")
 ELECTRON_RENDERER_DIR_PATH=os.path.join(ELECTRON_DIR_PATH, "renderer")
+ELECTRON_SCRIPT_DIR_PATH=os.path.join(RUNTIME_DIR_PATH, "scripts/electron")
 
 def run_cmd(cmd, ignore_error=False):
     print("Running: " + cmd)
@@ -159,14 +160,15 @@ def copy_electron_plugin(pluginName):
         pluginPathName = "elastos-trinity-plugins-titlebarmanager"
         pluginIsolatedName = "TitleBarManagerPluginIsolated.js"
     
-    
-
     platformPluginPath = "platforms/electron/platform_www/plugins/" + pluginPathName + "/src/electron"
     if not os.path.isdir(platformPluginPath):
         os.makedirs(platformPluginPath)
     shutil.copy2(RT_PLUGIN_DIR_PATH + "/" + pluginName + "/src/electron/" + pluginIsolatedName, platformPluginPath)
 
 def build_electron_files():
+    os.chdir(ELECTRON_SCRIPT_DIR_PATH)
+    run_cmd("node build.main.js")
+    run_cmd("node build.renderer.js")
     os.chdir(ELECTRON_MAIN_DIR_PATH)
     run_cmd("tsc --build tsconfig.json --force")
     os.chdir(RUNTIME_DIR_PATH)
@@ -176,7 +178,6 @@ def install_electron():
     if not os.path.isdir("platforms/electron"):
         run_cmd("cordova platform rm electron")
         run_cmd("cordova platform add electron@2.0.0-nightly.2020.9.12.734bbe7c", True)
-
 
 
 
