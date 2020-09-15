@@ -74,6 +74,8 @@ BUILT_IN_DIR_PATH=os.path.join(RUNTIME_DIR_PATH, "www/built-in/")
 PLUGIN_DIR_PATH=os.path.join(PROJECT_DIR_PATH, "Plugins")
 BUILT_IN_MIRROR_ANDROID=os.path.join(RUNTIME_DIR_PATH, "platforms/android/app/src/main/assets/www/built-in/")
 BUILT_IN_MIRROR_IOS=os.path.join(RUNTIME_DIR_PATH, "platforms/ios/www/built-in/")
+BUILT_IN_MIRROR_ELECTRON=os.path.join(RUNTIME_DIR_PATH, "platforms/electron/www/built-in/")
+ELECTRON_TITLEBAR_DIR_PATH=os.path.join(RUNTIME_DIR_PATH, "platform_src/electron/titlebar")
 CONFIG_MIRROR_ANDROID=os.path.join(RUNTIME_DIR_PATH, "platforms/android/app/src/main/assets/www/config/config.json")
 CONFIG_MIRROR_IOS=os.path.join(RUNTIME_DIR_PATH, "platforms/ios/www/config/config.json")
 
@@ -117,6 +119,22 @@ def build_app(app_path, platform, needBuild, output="www"):
     if platform == "all" or platform == "ios":
         if os.path.isdir(BUILT_IN_MIRROR_IOS):
             copy_tree(output, BUILT_IN_MIRROR_IOS + app_id)
+    if platform == "all" or platform == "electron":
+        if os.path.isdir(BUILT_IN_MIRROR_ELECTRON):
+            copy_tree(output, BUILT_IN_MIRROR_ELECTRON + app_id)
+
+def delete_app(app_path):
+    basename = os.path.basename(app_path)
+    if not os.path.isdir(app_path):
+        return
+
+    os.chdir(app_path)
+    app_id = get_appid(app_path +'/src/assets/manifest.json')
+    remove_tree(BUILT_IN_DIR_PATH + app_id)
+    if os.path.isdir(BUILT_IN_MIRROR_ANDROID + app_id):
+        remove_tree(BUILT_IN_MIRROR_ANDROID + app_id)
+    if os.path.isdir(BUILT_IN_MIRROR_IOS + app_id):
+        remove_tree(BUILT_IN_MIRROR_IOS + app_id)
 
 def delete_app(app_path):
     basename = os.path.basename(app_path)
@@ -273,7 +291,10 @@ if args.target == "clobber":
     os.chdir(PROJECT_DIR_PATH)
     remove_tree("Launcher/www")
     remove_tree("Launcher/node_modules")
-    run_cmd("rm Launcher/package-lock.json", True)
+    if ela_plugin.isWindows():
+        run_cmd("rd Launcher/package-lock.json", True)
+    else:
+        run_cmd("rm Launcher/package-lock.json", True)
     remove_tree("Runtime/node_modules")
     remove_tree("Runtime/origin_platforms")
     remove_tree("Runtime/origin_plugins")
@@ -287,7 +308,10 @@ if args.target == "clobber":
         if not os.path.isfile(dir):
             remove_tree(dir + "/www")
             remove_tree(dir + "/node_modules")
-            run_cmd("rm " + dir + "/package-lock.json", True)
+            if ela_plugin.isWindows():
+                run_cmd("rd " + dir + "/package-lock.json", True)
+            else:
+                run_cmd("rm " + dir + "/package-lock.json", True)
 
 if args.target == "plugin":
     if args.target_path == None:
@@ -341,15 +365,35 @@ if args.target == "all" or args.target == "launcher" or args.target == "runtime"
     updateConfig()
     ela_plugin.plugin_prepare(True)
     run_cmd("npm install")
+
     run_cmd("cordova prepare")
+    if build_platform == "all" or build_platform == "electron":
+        #ela_plugin.install_electron()
+        ela_plugin.copy_electron_files()
+        ela_plugin.install_titlebar()
+        os.chdir(ELECTRON_TITLEBAR_DIR_PATH)
+        copy_tree("www", RUNTIME_DIR_PATH + "/www/shared-titlebar")
+        os.chdir(RUNTIME_DIR_PATH)
+        copy_tree("plugin_src", "www/plugin_src")
+        run_cmd("cordova prepare")
+
     add_firebase()
     # Remove ionic wallet app from built-in only for ios
     #run_cmd("cd platforms/ios/www/built-in/org.elastos.trinity.dapp.wallet && ls | grep -v 'assets' | xargs rm -rf", True)
     os.chdir(RUNTIME_DIR_PATH)
+
+    print("BUILD SUCCESS")
+    print("'cd Runtime/platforms/electron/www', to start in dev mode -> enter:")
+    print("windows: 'electron .'")
+    print("ubuntu: 'sudo electron --no-sandbox .'")
+
     if build_platform == "all" or build_platform == "android":
         run_cmd("cordova build android " + build_type + " " + build_arg)
+    if build_platform == "all" or build_platform == "electron":
+        run_cmd("cordova build electron " + build_type + " " + build_arg)
     if build_platform == "all" or build_platform == "ios":
         run_cmd("cordova build ios " + build_type + " " + build_arg)
+
 
 elapsed = timeit.default_timer() - startTime
 minutes = elapsed / 60
