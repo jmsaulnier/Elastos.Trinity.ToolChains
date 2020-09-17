@@ -112,7 +112,7 @@ module.exports = class RunHelper {
 
                             if (iosDevice)
                                 resolve(iosDevice)
-                            else 
+                            else
                                 reject("No running iOS simulator found")
                         }
                     }
@@ -208,16 +208,16 @@ module.exports = class RunHelper {
             // Run a temporary http server
             var express = require('express')
             var app = express()
-    
+
             app.get('/downloadepk', (req, res) => {
                 res.sendFile(epkPath, {}, (err)=>{
                     if (err) {
-                        console.log("There was an error while delivering the EPK to the elastOS mobile app.".red)
+                        console.log("There was an error while delivering the EPK to elastOS.".red)
                         reject(err)
                         return
                     }
-                    else 
-                        console.log("The EPK file was downloaded by the elastOS mobile app.".green)
+                    else
+                        console.log("The EPK file was downloaded by elastOS.".green)
 
                     // Stop the servers right after the download is completed, and resolve.
                     server.close()
@@ -227,17 +227,17 @@ module.exports = class RunHelper {
                 })
             })
             server = app.listen(port)
-    
+
             // Advertise a trinitycli HTTP server
             console.log("Publishing Bonjour service 'trinitycli', host: "+ipAddress+", port: "+port);
-            bonjour.publish({ 
-                name: 'trinitycli', 
-                type: 'trinitycli', 
+            bonjour.publish({
+                name: 'trinitycli',
+                type: 'trinitycli',
                 host: ipAddress,
-                port: port 
+                port: port
             })
 
-            console.log("Waiting for the mobile app to download the dApp.".blue)
+            console.log("Waiting for elastOS to download the dApp.".blue)
         })
     }
 }

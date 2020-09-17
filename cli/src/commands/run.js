@@ -12,12 +12,12 @@ exports.describe = 'Deploys current DApp to your connected device'
 exports.builder = {
   platform: {
     alias: "p",
-    describe: "Platform to deploy to (android|ios)",
+    describe: "Platform to deploy to (android|ios|desktop)",
     require: true
   },
   nodebug: {
       // Let the app be deployed without ionic serve. This way, manifest is not modified and will call
-      // a local index.html (on device) instead of a remote IP served by ionic. This way, apps can be 
+      // a local index.html (on device) instead of a remote IP served by ionic. This way, apps can be
       // running on the device without computer dependency (but loose debugging capability).
       describe: "Deploy the DApp without remote url access, auto-reload or debugging capability",
       require: false,
@@ -44,6 +44,8 @@ exports.handler = function (argv) {
             deployAndroidDApp(noDebug, forProd)
             break;
         case "ios":
+        case "desktop":
+            // Desktop currently uses the same process as iOS, with a generic bonjour service
             deployiOSDApp(noDebug, forProd)
             break;
         default:
@@ -66,7 +68,7 @@ async function runSharedDeploymentPhase(noDebug, forProd) {
 
     // Retrieve user's computer IP (to be able to ionic serve / hot reload)
     // Update the start_url in the trinity manifest
-    // 
+    //
     // Clone the original manifest into a temporary manifest so that we don't touch user's original manifest.
     var ipAddress = await manifestHelper.promptIpAddressToUse();
     var originalManifestPath = manifestHelper.getManifestPath(ionicHelper.getConfig().assets_path)
@@ -88,23 +90,23 @@ async function runSharedDeploymentPhase(noDebug, forProd) {
                 .catch((err)=>{
                     console.error("Failed to pack your DApp into a EPK file".red)
                     reject(err)
-                })          
+                })
             })
             .catch((err)=>{
                 console.error("Failed run ionic build".red)
                 reject(err)
-            })          
+            })
         })
         .catch((err)=>{
             console.error("Failed to install ionic dependencies".red)
             reject(err)
-        }) 
+        })
     })
 }
 
 /**
  * The process to run one of our ionic-based DApps on android is as following:
- * 
+ *
  * - Retrieve user's computer IP (to be able to ionic serve / hot reload)
  * - Update the start_url in the trinity manifest
  * - npm install
@@ -151,20 +153,20 @@ async function deployAndroidDApp(noDebug, forProd) {
         .catch((err)=>{
             console.error("Failed to upload your DApp to your device".red)
             console.error("Error:",err)
-        })   
+        })
     })
 }
 
 /**
- * The process to run one of our ionic-based DApps on the iOS SIMULATOR is as following:
- * 
+ * The process to run one of our ionic-based DApps on iOS devices is as following:
+ *
  * - Retrieve user's computer IP (to be able to ionic serve / hot reload)
  * - Update the start_url in the trinity manifest
  * - npm install
  * - ionic build
  * - pack_epk
  * - sign_epk
- * - run a bonjour + http service and waot for native app to download the EPK
+ * - run a bonjour + http service and wait for native app to download the EPK
  * - ionic serve (for hot reload inside trinity, when user saves his files)
  */
 async function deployiOSDApp(noDebug, forProd) {
@@ -185,7 +187,7 @@ async function deployiOSDApp(noDebug, forProd) {
     runSharedDeploymentPhase(noDebug, forProd).then((sharedInfo)=>{
         runHelper.runDownloadService(sharedInfo.outputEPKPath, sharedInfo.ipAddress).then(()=>{
             console.log("RUN OPERATION COMPLETED".green)
-        
+
             if (!noDebug) {
                 console.log("NOW RUNNING THE APP FOR DEVELOPMENT".green)
                 console.log("Please wait until the ionic server is started before launching your DApp on your device.".magenta)
