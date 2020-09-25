@@ -24,7 +24,7 @@ parser.add_argument('target', metavar='TARGET', choices=['all', 'clean', 'clobbe
                          Specify the target to build.
                          all: build all module: launcher, dapp, runtime;
                          dapp: build dapp;
-                         launcher: build launcher, runtime;
+                         launcher: build launcher, Dapp/Ionic/DIDSession, runtime;
                          runtime: build runtime;
                          clean: delete runtime platforms;
                          clobber: delete all build files;
@@ -122,19 +122,6 @@ def build_app(app_path, platform, needBuild, output="www"):
     if platform == "all" or platform == "electron":
         if os.path.isdir(BUILT_IN_MIRROR_ELECTRON):
             copy_tree(output, BUILT_IN_MIRROR_ELECTRON + app_id)
-
-def delete_app(app_path):
-    basename = os.path.basename(app_path)
-    if not os.path.isdir(app_path):
-        return
-
-    os.chdir(app_path)
-    app_id = get_appid(app_path +'/src/assets/manifest.json')
-    remove_tree(BUILT_IN_DIR_PATH + app_id)
-    if os.path.isdir(BUILT_IN_MIRROR_ANDROID + app_id):
-        remove_tree(BUILT_IN_MIRROR_ANDROID + app_id)
-    if os.path.isdir(BUILT_IN_MIRROR_IOS + app_id):
-        remove_tree(BUILT_IN_MIRROR_IOS + app_id)
 
 def delete_app(app_path):
     basename = os.path.basename(app_path)
@@ -325,6 +312,10 @@ if args.target == "all" or args.target == "launcher":
     run_cmd("npm install")
     run_cmd("ionic build --prod")
     copy_tree("www", RUNTIME_DIR_PATH + "/www/launcher/")
+
+    # build DIDSession
+    dapp_dir = os.path.join(PROJECT_DIR_PATH, "Dapps/Ionic/DIDSession")
+    build_app(dapp_dir, build_platform, True, "www")
 
 if args.target == "all" or args.target == "dapp":
     if args.target_path == None:
