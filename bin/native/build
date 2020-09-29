@@ -1,0 +1,376 @@
+#!/usr/bin/env python
+
+"""
+Usage:
+./Toolchain/bin/native/build --config ../../my/app/native.trinitynativeconfig.json
+    -> Cleans all trinity + dapp
+    -> Builds all trinity + dapp
+    -> Update runtime config and files to customize the application
+./Toolchain/bin/native/trinity-update
+    -> Updates trinity with the latest source code
+
+Concept:
+- Developers have to build the native app (using this script) only the first time when they don't have any
+  native app installed yet on their device, or when they want the latest trinity source code, or when they
+  want to deploy their app.
+- Developers use the Trinity CLI for efficient development and hot reload.
+"""
+
+"""
+TRINITY NATIVE CONFIG FILE EXAMPLE:
+    {
+        "build": {
+            "root": "..",
+            "out": "../native-out"
+        },
+        "application": {
+            "name": "Elastos DID Demo",
+            "packageid": "org.elastos.trinity.dapp.diddemo",
+            "icon": "../src/assets/images/logo.png",
+            "splashscreen": "../src/assets/images/logo.png",
+            "link-prefix": "https://diddemo.trinity-tech.io/",
+            "version": {
+                "code": 101,
+                "name": "1.0.1"
+            }
+        }
+    }
+"""
+
+import sys
+reload(sys)
+sys.setdefaultencoding('utf8')
+
+import argparse
+import distutils.dir_util as dir_util
+import json
+import os
+import fnmatch
+import platform
+import subprocess
+import sys
+import textwrap
+import timeit
+import shutil
+from collections import OrderedDict
+from lxml import etree as et
+
+#####################
+### SCRIPT PARAMS ###
+#####################
+
+sys.path.append(os.path.abspath(os.path.dirname(os.path.realpath(__file__)) + '/../../lib'))
+import ela_plugin
+
+parser = argparse.ArgumentParser(description='Builds the Elastos.Trinity project together with a target dApp in order to generate a native application based on the Trinity runtime.',
+                                 formatter_class=argparse.RawTextHelpFormatter)
+parser.add_argument('-c', '--config', dest='native_config_path', metavar='PATH', required=True,
+                    help='Trinity native configuration file to customize trinity for the target dApp.')
+parser.add_argument('-bv', '--buildvariant', dest='buildvariant', required=False,
+                    help='Specify the build variant.')
+
+parser.add_argument('--release', action='store_true', help='Build this project for release.')
+parser.add_argument('--buildarg', dest='buildarg', required=False,
+                    help='Specify the build arg.')
+args = parser.parse_args()
+
+if args.release:
+    build_type='--release'
+else:
+    build_type=''
+
+if args.buildarg:
+    build_arg=args.buildarg
+else:
+    build_arg=''
+
+SCRIPT_PATH=os.path.realpath(__file__)
+
+# Toolchain paths
+TOOLCHAINS_DIR_PATH=os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_PATH)))
+TOOLCHAINS_DIR_NAME=os.path.basename(TOOLCHAINS_DIR_PATH)
+TRINITY_PROJECT_DIR_PATH=os.path.realpath(os.path.join(TOOLCHAINS_DIR_PATH, ".."))
+
+# Trinity project paths
+RUNTIME_DIR_PATH=os.path.join(TRINITY_PROJECT_DIR_PATH, "Runtime")
+RUNTIME_COPY_DIR_PATH=os.path.join(TRINITY_PROJECT_DIR_PATH, "RuntimeTmp")
+PLUGIN_DIR_PATH=os.path.join(TRINITY_PROJECT_DIR_PATH, "Plugins")
+
+# Paths in Runtime
+ANDROID_PLATFORM_SRC_DIR_PATH=os.path.join(RUNTIME_COPY_DIR_PATH, "platform_src/android")
+ANDROID_PLATFORM_DIR_PATH=os.path.join(RUNTIME_COPY_DIR_PATH, "platforms/android")
+ANDROID_APP_OUT_DIR_PATH=os.path.join(ANDROID_PLATFORM_DIR_PATH, "app/build/outputs/apk/debug")
+BUILT_IN_DIR_PATH=os.path.join(RUNTIME_COPY_DIR_PATH, "www/built-in/")
+BUILT_IN_MIRROR_ANDROID=os.path.join(ANDROID_PLATFORM_DIR_PATH, "app/src/main/assets/www/built-in/")
+BUILT_IN_MIRROR_IOS=os.path.join(RUNTIME_COPY_DIR_PATH, "platforms/ios/www/built-in/")
+BUILT_IN_MIRROR_ELECTRON=os.path.join(RUNTIME_COPY_DIR_PATH, "platforms/electron/www/built-in/")
+ELECTRON_TITLEBAR_DIR_PATH=os.path.join(RUNTIME_COPY_DIR_PATH, "platform_src/electron/titlebar")
+CONFIG_MIRROR_ANDROID=os.path.join(ANDROID_PLATFORM_DIR_PATH, "app/src/main/assets/www/config/config.json")
+CONFIG_MIRROR_IOS=os.path.join(RUNTIME_COPY_DIR_PATH, "platforms/ios/www/config/config.json")
+
+# Paths in dapp
+TRINITY_CONFIG_PATH = os.path.realpath(os.path.join(os.getcwd(), args.native_config_path))
+TRINITY_CONFIG_DIR_PATH = os.path.dirname(TRINITY_CONFIG_PATH)
+
+###############
+### METHODS ###
+###############
+
+def run_cmd(cmd, ignore_error=False):
+    print("Running: " + cmd)
+    ret = subprocess.call(cmd, shell=True)
+    if not ignore_error and ret != 0:
+        sys.exit(ret)
+
+def remove_tree(directory):
+    print("Removing: " + directory)
+    if os.path.isdir(directory):
+        dir_util.remove_tree(directory)
+
+def copy_tree(src, dst, clean=True):
+    print("Copying " + src + " To " + dst)
+    if clean:
+        remove_tree(dst)
+    print("Copying to: "+dst)
+    dir_util.copy_tree(src, dst)
+
+def get_appid(manifest):
+    file_in = open(manifest, "r")
+    data = json.load(file_in)
+    return data['id']
+
+# build app and copy the www/* to Runtime/www/built-in/
+def build_app(app_path, platform, needBuild, output="www"):
+    basename = os.path.basename(app_path)
+    print("\r\n-------------------- Building dapp: " + basename + " --------------------")
+    os.chdir(app_path)
+
+    if needBuild:
+        run_cmd("npm install")
+        run_cmd("ionic build --prod")
+
+    app_id = get_appid(app_path +'/src/assets/manifest.json')
+    copy_tree(output, BUILT_IN_DIR_PATH + app_id)
+    if platform == "all" or platform == "android":
+        if os.path.isdir(BUILT_IN_MIRROR_ANDROID):
+            copy_tree(output, BUILT_IN_MIRROR_ANDROID + app_id)
+    if platform == "all" or platform == "ios":
+        if os.path.isdir(BUILT_IN_MIRROR_IOS):
+            copy_tree(output, BUILT_IN_MIRROR_IOS + app_id)
+    if platform == "all" or platform == "electron":
+        if os.path.isdir(BUILT_IN_MIRROR_ELECTRON):
+            copy_tree(output, BUILT_IN_MIRROR_ELECTRON + app_id)
+
+# update any kind of json file
+def updateJsonFile(jsonfile, key, value):
+    file_in = open(jsonfile, "r")
+    data = json.load(file_in, object_pairs_hook=OrderedDict)
+    file_in.close()
+
+    data[key] = value
+
+    file_out = open(jsonfile, 'w')
+    file_out.write(json.dumps(data, indent=4))
+    file_out.close()
+
+def updateConfigFile(key, value):
+    config_path = os.path.join(RUNTIME_COPY_DIR_PATH, "www/config/config.json")
+    updateJsonFile(config_path, key, value)
+
+    # update mirror config file
+    if os.path.isfile(CONFIG_MIRROR_ANDROID):
+        updateJsonFile(CONFIG_MIRROR_ANDROID, key, value)
+    if os.path.isfile(CONFIG_MIRROR_IOS):
+        updateJsonFile(CONFIG_MIRROR_IOS, key, value)
+
+def updateConfig():
+    # We are building for trinity-native
+    updateConfigFile("build.type", "native")
+
+    if args.buildvariant:
+        updateConfigFile("build.variant", args.buildvariant)
+
+# findReplace("some_dir", "find this", "replace with this", "*.txt")
+def findReplace(directory, find, replace, filePattern):
+    for path, dirs, files in os.walk(os.path.abspath(directory)):
+        for filename in fnmatch.filter(files, filePattern):
+            filepath = os.path.join(path, filename)
+            with open(filepath) as f:
+                s = f.read()
+            s = s.replace(find, replace)
+            with open(filepath, "w") as f:
+                f.write(s)
+
+def runClean():
+    os.chdir(TRINITY_PROJECT_DIR_PATH)
+    remove_tree("Runtime/platforms")
+    remove_tree("Runtime/plugins")
+
+def runClobber():
+    print("Starting fresh. Deleting previous build files.")
+    os.chdir(TRINITY_PROJECT_DIR_PATH)
+
+    remove_tree("Runtime/node_modules")
+    remove_tree("Runtime/origin_platforms")
+    remove_tree("Runtime/origin_plugins")
+    remove_tree("Runtime/platforms")
+    remove_tree("Runtime/plugins")
+    remove_tree("Runtime/www")
+
+    remove_tree(RUNTIME_COPY_DIR_PATH)
+
+def loadTrinityNativeConfig():
+    if not os.path.isfile(TRINITY_CONFIG_PATH):
+        print("Error: No trinity configuration file at "+TRINITY_CONFIG_PATH)
+        sys.exit(1)
+
+    print("Loading trinity native config file at "+TRINITY_CONFIG_PATH)
+
+    file_in = open(TRINITY_CONFIG_PATH, "r")
+    data = json.load(file_in, object_pairs_hook=OrderedDict)
+    file_in.close()
+    return data
+
+def buildDApp():
+    relativeAppSrcPath = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["build"], "root", "build/root")
+
+    appPath = os.path.realpath(os.path.join(TRINITY_CONFIG_DIR_PATH, relativeAppSrcPath))
+    if not os.path.isdir(appPath):
+        print("Error: No ionic application at the given root path")
+        sys.exit(1)
+
+    print("Building ionic dApp from "+appPath)
+    build_app(appPath, "all", True, "www")
+
+def getOutputDir():
+    relativeAppOutPath = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["build"], "out", "build/out")
+    if relativeAppOutPath is None:
+        print("No output folder defined in the trinity native configuration (build/out)")
+        sys.exit(1)
+
+    return os.path.realpath(os.path.join(TRINITY_CONFIG_DIR_PATH, relativeAppOutPath))
+
+def prepareOutputDir():
+    outputDir = getOutputDir()
+    if not os.path.exists(outputDir):
+        os.mkdir(outputDir)
+
+# Copy the generated native APK to user's defined output folder
+def copyAPKToOutput():
+    apkPath = os.path.realpath(os.path.join(ANDROID_APP_OUT_DIR_PATH, "app-debug.apk"))
+    apkOutPath = os.path.realpath(os.path.join(getOutputDir(), "app-debug.apk"))
+    shutil.copy2(apkPath, apkOutPath)
+
+    # Make sure the copy was ok
+    if not os.path.exists(apkOutPath):
+        print("Error: something went wront when trying to copy the android APK file to the output folder")
+        sys.exit(1)
+
+def ensureTrinityConfigFieldPresence(dictObject, field, debugHint):
+    if not field in dictObject:
+        print("Error: No ["+debugHint+"] field defined in the trinity native configuration")
+        sys.exit(1)
+    return dictObject[field]
+
+# Modify the original config.xml file from cordova to adjust it for our new native app
+def patchCordovaConfigXml():
+    print("Customizing cordova config.xml")
+    configXmlPath = os.path.realpath(os.path.join(RUNTIME_COPY_DIR_PATH, "config.xml"))
+
+    nativePackage = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "packageid", "application/packageid")
+    print("Patching application package id: "+nativePackage)
+
+    tree = et.parse(configXmlPath)
+    root = tree.getroot()
+    root.attrib["android-packageName"] = nativePackage
+    root.attrib["ios-CFBundleIdentifier"] = nativePackage
+
+    # Overwrite the config file
+    f = open(configXmlPath, 'w')
+    f.write(et.tostring(root, pretty_print=True))
+    f.close()
+
+def cloneRuntimeFolder():
+    print("Cloning the Runtime folder")
+    # TODO: CLONE TO A TMP FOLDER ON THE DEVICE INSTEAD
+    copy_tree(RUNTIME_DIR_PATH, RUNTIME_COPY_DIR_PATH)
+
+####################
+### MAIN PROCESS ###
+####################
+
+startTime = timeit.default_timer()
+
+if TOOLCHAINS_DIR_NAME != "ToolChains" or \
+   not os.path.isdir(RUNTIME_DIR_PATH):
+    print('Error: You should "git clone" the "Elastos.Trinity" project with "--recurse-submodules" option.')
+    print('       And run the script within the "ToolChains/bin" directory of the project.')
+    sys.exit(1)
+
+# Remove everything - restart totally clean
+runClobber()
+
+# Get user's configuration file
+TRINITY_NATIVE_CONFIG = loadTrinityNativeConfig()
+
+# Make a full copy of the runtime folder as we are going to modify many things
+cloneRuntimeFolder()
+
+# Patch cordova for our native app config tweaks
+patchCordovaConfigXml()
+
+# Build the target dApp
+# TMP buildDApp()
+
+# TMP TEST
+os.environ["TRINITY_NATIVE_BUILD"] = "1"
+test1 = os.path.join(ANDROID_PLATFORM_SRC_DIR_PATH, "app/src/main/java/org/elastos/trinity/runtime")
+test2 = os.path.join(ANDROID_PLATFORM_SRC_DIR_PATH, "app/src/main/java/org/elastos/trinity/dapp/diddemo")
+copy_tree(test1, test2)
+remove_tree(test1) # delete the original source now that they are duplicated to the new package-based folder
+findReplace(test2, "org.elastos.trinity.runtime", "org.elastos.trinity.dapp.diddemo", "*.java")
+
+# Update runtime config files
+print("Entering temporary Runtime folder at "+RUNTIME_COPY_DIR_PATH)
+os.chdir(RUNTIME_COPY_DIR_PATH)
+copy_tree("www_files", "www", False)
+updateConfig()
+ela_plugin.plugin_prepare(True)
+""" TMP REMOVED
+print("Installing NPM dependencies for the trinity Runtime.")
+run_cmd("npm install")
+"""
+run_cmd("cordova prepare")
+
+
+""" TMP REMOVED ELECTRON - RESTORE THIS BLOCK
+# Electron specific preparation step
+#ela_plugin.install_electron()
+ela_plugin.copy_electron_files()
+ela_plugin.install_titlebar()
+os.chdir(ELECTRON_TITLEBAR_DIR_PATH)
+copy_tree("www", RUNTIME_COPY_DIR_PATH + "/www/shared-titlebar")
+os.chdir(RUNTIME_DIR_PATH)
+copy_tree("plugin_src", "www/plugin_src")
+run_cmd("cordova prepare")
+"""
+
+os.chdir(RUNTIME_COPY_DIR_PATH)
+
+# Build the platforms
+print("Building platforms")
+run_cmd("cordova build android " + build_type + " " + build_arg)
+# TMP run_cmd("cordova build electron " + build_type + " " + build_arg)
+# TMP run_cmd("cordova build ios " + build_type + " " + build_arg)
+
+# Copy outputs to the target output folder
+print("Copying generated content to the output folder")
+prepareOutputDir()
+copyAPKToOutput()
+
+print("Native Trinity application generated successfully")
+
+elapsed = timeit.default_timer() - startTime
+minutes = elapsed / 60
+seconds = elapsed % 60
+print('Elapsed time: [%d min %0.2fs]' % (minutes, seconds))
