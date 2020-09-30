@@ -198,6 +198,9 @@ def updateConfig():
     nativePackage = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "packageid", "application/packageid")
     updateConfigFile("native.startup.dapppackage", nativePackage)
 
+    # Enable developer mode to be able to upgrade EPKS - TODO: Should be only when we build for DEBUG!
+    updateConfigFile("developer.mode", true)
+
     if args.buildvariant:
         updateConfigFile("build.variant", args.buildvariant)
 
