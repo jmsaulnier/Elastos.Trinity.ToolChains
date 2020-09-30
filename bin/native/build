@@ -60,7 +60,9 @@ from lxml import etree as et
 #####################
 
 sys.path.append(os.path.abspath(os.path.dirname(os.path.realpath(__file__)) + '/../../lib'))
+sys.path.append(os.path.abspath(os.path.dirname(os.path.realpath(__file__)) + '/../../lib/native'))
 import ela_plugin
+import ela_resources as ela_native_resources
 
 parser = argparse.ArgumentParser(description='Builds the Elastos.Trinity project together with a target dApp in order to generate a native application based on the Trinity runtime.',
                                  formatter_class=argparse.RawTextHelpFormatter)
@@ -199,7 +201,7 @@ def updateConfig():
     updateConfigFile("native.startup.dapppackage", nativePackage)
 
     # Enable developer mode to be able to upgrade EPKS - TODO: Should be only when we build for DEBUG!
-    updateConfigFile("developer.mode", true)
+    updateConfigFile("developer.mode", True)
 
     if args.buildvariant:
         updateConfigFile("build.variant", args.buildvariant)
@@ -262,11 +264,12 @@ def buildDApp():
 # Returns the folder path in which we will output everything we want to give to the user (dapp developer)
 def getOutputDir():
     relativeAppOutPath = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["build"], "out", "build/out")
-    if relativeAppOutPath is None:
-        print("No output folder defined in the trinity native configuration (build/out)")
-        sys.exit(1)
-
     return os.path.realpath(os.path.join(TRINITY_CONFIG_DIR_PATH, relativeAppOutPath))
+
+# Returns the full path for user's dapp icon
+def getDAppIconPath():
+    relativeAppIcon = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "icon", "application/icon")
+    return os.path.realpath(os.path.join(TRINITY_CONFIG_DIR_PATH, relativeAppIcon))
 
 def prepareOutputDir():
     outputDir = getOutputDir()
@@ -325,7 +328,7 @@ def patchCordovaConfigXml():
 
 def cloneRuntimeFolder():
     print("Cloning the Runtime folder")
-    # TODO: CLONE TO A TMP FOLDER ON THE DEVICE INSTEAD
+    # TODO: CLONE TO A SYSTEM TMP FOLDER INSTEAD
     copy_tree(RUNTIME_DIR_PATH, RUNTIME_COPY_DIR_PATH)
 
 # Converts package id such as "org.company.app" to "org/company/app"
@@ -397,9 +400,13 @@ cloneRuntimeFolder()
 patchCordovaConfigXml()
 
 # TODO: patch version code and version name in platform specific files (gradle, plist, etc)
+# TODO: update app icon (ios, electron)
+# TODO: update splash screen
+# TODO: add scheme to handle deep linking
 
 # Rename default "org.elastos.trinity.runtime" related paths to the new app package id
 androidPatchPackageIdInSourceCodeBeforeCordovaPrepare()
+ela_native_resources.deployAndroidAppIcon(getDAppIconPath(), ANDROID_PLATFORM_RES_DIR_PATH)
 
 # Modify the "patch" files themselves
 patchCordovaPreparePatches()
@@ -419,7 +426,7 @@ run_cmd("npm install")
 """
 run_cmd("cordova prepare")
 
-# TMP TEST
+# Run some post cordova prepare operations
 androidPatchPackageIdInSourceCodeAfterCordovaPrepare()
 
 """ TMP REMOVED ELECTRON - RESTORE THIS BLOCK

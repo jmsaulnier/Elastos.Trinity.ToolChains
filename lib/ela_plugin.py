@@ -159,7 +159,7 @@ def copy_electron_plugin(pluginName):
     elif pluginName == "TitleBarManager":
         pluginPathName = "elastos-trinity-plugins-titlebarmanager"
         pluginIsolatedName = "TitleBarManagerPluginIsolated.js"
-    
+
     platformPluginPath = "platforms/electron/platform_www/plugins/" + pluginPathName + "/src/electron"
     if not os.path.isdir(platformPluginPath):
         os.makedirs(platformPluginPath)
@@ -178,9 +178,3 @@ def install_electron():
     if not os.path.isdir("platforms/electron"):
         run_cmd("cordova platform rm electron")
         run_cmd("cordova platform add electron@2.0.0-nightly.2020.9.12.734bbe7c", True)
-
-
-
-
-
-    
