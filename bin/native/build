@@ -98,6 +98,7 @@ PLUGIN_DIR_PATH=os.path.join(TRINITY_PROJECT_DIR_PATH, "Plugins")
 
 # Paths in Runtime
 ANDROID_PLATFORM_SRC_DIR_PATH=os.path.join(RUNTIME_COPY_DIR_PATH, "platform_src/android")
+ANDROID_PLATFORM_RES_DIR_PATH=os.path.join(RUNTIME_COPY_DIR_PATH, "platform_res/android")
 ANDROID_PLATFORM_DIR_PATH=os.path.join(RUNTIME_COPY_DIR_PATH, "platforms/android")
 ANDROID_APP_OUT_DIR_PATH=os.path.join(ANDROID_PLATFORM_DIR_PATH, "app/build/outputs/apk/debug")
 BUILT_IN_DIR_PATH=os.path.join(RUNTIME_COPY_DIR_PATH, "www/built-in/")
@@ -145,6 +146,8 @@ def get_appid(manifest):
 
 # build app and copy the www/* to Runtime/www/built-in/
 def build_app(app_path, platform, needBuild, output="www"):
+    print("Building ionic dApp at: "+app_path)
+
     basename = os.path.basename(app_path)
     print("\r\n-------------------- Building dapp: " + basename + " --------------------")
     os.chdir(app_path)
@@ -250,8 +253,8 @@ def buildDApp():
         print("Error: No ionic application at the given root path")
         sys.exit(1)
 
-    print("Building ionic dApp from "+appPath)
     build_app(appPath, "all", True, "www")
+    #build_app(appPath, "all", False, "www") # TMP
 
 # Returns the folder path in which we will output everything we want to give to the user (dapp developer)
 def getOutputDir():
@@ -328,6 +331,7 @@ def androidGetStringifiedFoldersFromPackage():
     return nativePackage.replace(".","/")
 
 def androidPatchPackageIdInSourceCodeBeforeCordovaPrepare():
+    nativePackage = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "packageid", "application/packageid")
     stringifiedFoldersFromPath = androidGetStringifiedFoldersFromPackage()
     originalRuntimeSrcFolder = os.path.join(ANDROID_PLATFORM_SRC_DIR_PATH, "app/src/main/java/org/elastos/trinity/runtime")
     renamedRuntimeSrcFolder = os.path.join(ANDROID_PLATFORM_SRC_DIR_PATH, "app/src/main/java/"+androidGetStringifiedFoldersFromPackage())
@@ -337,10 +341,13 @@ def androidPatchPackageIdInSourceCodeBeforeCordovaPrepare():
     remove_tree(originalRuntimeSrcFolder) # delete the original source now that it is duplicated to the new package-based folder
 
     # Replace all occurences of the original package id with the new package id, in android source files (incl plugins)
-    findReplace(ANDROID_PLATFORM_SRC_DIR_PATH, "org.elastos.trinity.runtime", "org.elastos.trinity.dapp.diddemo", "*.java")
+    findReplace(ANDROID_PLATFORM_SRC_DIR_PATH, "org.elastos.trinity.runtime", nativePackage, "*.java")
+    findReplace(ANDROID_PLATFORM_RES_DIR_PATH, "org.elastos.trinity.runtime", nativePackage, "*.xml") # android layout files
 
 def androidPatchPackageIdInSourceCodeAfterCordovaPrepare():
-    findReplace(ANDROID_PLATFORM_DIR_PATH, "org.elastos.trinity.runtime", "org.elastos.trinity.dapp.diddemo", "*.java")
+    nativePackage = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "packageid", "application/packageid")
+    findReplace(ANDROID_PLATFORM_DIR_PATH, "org.elastos.trinity.runtime", nativePackage, "*.java")
+    findReplace(ANDROID_PLATFORM_DIR_PATH, "org.elastos.trinity.runtime", nativePackage, "*.xml") # Cordova config to access plugins
 
 # Because the app name and package id change, we also need to modify our patch system a bit
 def patchCordovaPreparePatches():
@@ -395,7 +402,7 @@ androidPatchPackageIdInSourceCodeBeforeCordovaPrepare()
 patchCordovaPreparePatches()
 
 # Build the target dApp
-# TMP buildDApp()
+buildDApp()
 
 # Update runtime config files
 print("Entering temporary Runtime folder at "+RUNTIME_COPY_DIR_PATH)
