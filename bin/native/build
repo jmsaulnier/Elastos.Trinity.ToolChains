@@ -126,6 +126,10 @@ def remove_tree(directory):
     print("Removing: " + directory)
     if os.path.isdir(directory):
         dir_util.remove_tree(directory)
+        # Make sure the deletion was really successful (no file system lock):
+        if os.path.exists(directory):
+            print("Error: folder could not be totally deleted. Check possible file system lock: "+directory)
+            os.exit(1)
 
 def copy_tree(src, dst, clean=True):
     print("Copying " + src + " To " + dst)
@@ -187,6 +191,10 @@ def updateConfig():
     # We are building for trinity-native
     updateConfigFile("build.type", "native")
 
+    # Define which dapp to start when trinity starts
+    nativePackage = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "packageid", "application/packageid")
+    updateConfigFile("native.startup.dapppackage", nativePackage)
+
     if args.buildvariant:
         updateConfigFile("build.variant", args.buildvariant)
 
@@ -195,11 +203,14 @@ def findReplace(directory, find, replace, filePattern):
     for path, dirs, files in os.walk(os.path.abspath(directory)):
         for filename in fnmatch.filter(files, filePattern):
             filepath = os.path.join(path, filename)
-            with open(filepath) as f:
-                s = f.read()
-            s = s.replace(find, replace)
-            with open(filepath, "w") as f:
-                f.write(s)
+            findReplaceInFile(filepath, find, replace)
+
+def findReplaceInFile(filepath, find, replace):
+    with open(filepath) as f:
+        s = f.read()
+    s = s.replace(find, replace)
+    with open(filepath, "w") as f:
+        f.write(s)
 
 def runClean():
     os.chdir(TRINITY_PROJECT_DIR_PATH)
@@ -242,6 +253,7 @@ def buildDApp():
     print("Building ionic dApp from "+appPath)
     build_app(appPath, "all", True, "www")
 
+# Returns the folder path in which we will output everything we want to give to the user (dapp developer)
 def getOutputDir():
     relativeAppOutPath = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["build"], "out", "build/out")
     if relativeAppOutPath is None:
@@ -315,7 +327,7 @@ def androidGetStringifiedFoldersFromPackage():
     nativePackage = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "packageid", "application/packageid")
     return nativePackage.replace(".","/")
 
-def androidPatchPackageIdInSourceCode():
+def androidPatchPackageIdInSourceCodeBeforeCordovaPrepare():
     stringifiedFoldersFromPath = androidGetStringifiedFoldersFromPackage()
     originalRuntimeSrcFolder = os.path.join(ANDROID_PLATFORM_SRC_DIR_PATH, "app/src/main/java/org/elastos/trinity/runtime")
     renamedRuntimeSrcFolder = os.path.join(ANDROID_PLATFORM_SRC_DIR_PATH, "app/src/main/java/"+androidGetStringifiedFoldersFromPackage())
@@ -324,8 +336,29 @@ def androidPatchPackageIdInSourceCode():
     copy_tree(originalRuntimeSrcFolder, renamedRuntimeSrcFolder)
     remove_tree(originalRuntimeSrcFolder) # delete the original source now that it is duplicated to the new package-based folder
 
-    # Replace all occurences of the original package id with the new package id, in android source files
+    # Replace all occurences of the original package id with the new package id, in android source files (incl plugins)
     findReplace(ANDROID_PLATFORM_SRC_DIR_PATH, "org.elastos.trinity.runtime", "org.elastos.trinity.dapp.diddemo", "*.java")
+
+def androidPatchPackageIdInSourceCodeAfterCordovaPrepare():
+    findReplace(ANDROID_PLATFORM_DIR_PATH, "org.elastos.trinity.runtime", "org.elastos.trinity.dapp.diddemo", "*.java")
+
+# Because the app name and package id change, we also need to modify our patch system a bit
+def patchCordovaPreparePatches():
+    appName = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "name", "application/name")
+    stringifiedPackageNameFoldersFromPath = androidGetStringifiedFoldersFromPackage()
+
+    # modify_xcode_project.js - app name folder is not "elastOS" any more
+    modifyXcodeProjectScriptPath = os.path.realpath(os.path.join(RUNTIME_COPY_DIR_PATH, "scripts/modify_xcode_project.js"))
+    findReplaceInFile(modifyXcodeProjectScriptPath, "platforms/ios/elastOS.xcodeproj", "platforms/ios/"+appName+".xcodeproj")
+
+    # objc_files.patch - platforms/ios/elastOS is renamed to use the native app name
+    objcFilesPatchPath = os.path.realpath(os.path.join(RUNTIME_COPY_DIR_PATH, "scripts/patches/after_platform_add_ios/objc_files.patch"))
+    findReplaceInFile(objcFilesPatchPath, "+++ platforms/ios/elastOS", "+++ platforms/ios/"+appName)
+
+    # remove_files.js - app name folder is not "elastOS" any more - android source path has changed too
+    removeFilesScriptPath = os.path.realpath(os.path.join(RUNTIME_COPY_DIR_PATH, "scripts/remove_files.js"))
+    findReplaceInFile(removeFilesScriptPath, "org/elastos/trinity/runtime", stringifiedPackageNameFoldersFromPath)
+    findReplaceInFile(removeFilesScriptPath, "platforms/ios/elastOS", "platforms/ios/"+appName)
 
 ####################
 ### MAIN PROCESS ###
@@ -356,7 +389,10 @@ patchCordovaConfigXml()
 # TODO: patch version code and version name in platform specific files (gradle, plist, etc)
 
 # Rename default "org.elastos.trinity.runtime" related paths to the new app package id
-androidPatchPackageIdInSourceCode()
+androidPatchPackageIdInSourceCodeBeforeCordovaPrepare()
+
+# Modify the "patch" files themselves
+patchCordovaPreparePatches()
 
 # Build the target dApp
 # TMP buildDApp()
@@ -373,6 +409,8 @@ run_cmd("npm install")
 """
 run_cmd("cordova prepare")
 
+# TMP TEST
+androidPatchPackageIdInSourceCodeAfterCordovaPrepare()
 
 """ TMP REMOVED ELECTRON - RESTORE THIS BLOCK
 # Electron specific preparation step
