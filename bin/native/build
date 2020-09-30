@@ -272,22 +272,37 @@ def ensureTrinityConfigFieldPresence(dictObject, field, debugHint):
         sys.exit(1)
     return dictObject[field]
 
+# Painful to get for example the "name" element included in a "widget" parent, in case widget is namespaced.
+# So we use this helper function. And a self namespace (xmlns instead or xmlns:xxx) on an element shows as None key in its nsmap...
+def lxmlGetFirstNamespacedChildByName(parentEL, childName, parentNamespaceName, parentNamespace):
+    nsmap = parentEL.nsmap
+    nsmap[parentNamespaceName] = parentNamespace
+    nsmap.pop(None)
+    return parentEL.xpath(parentNamespaceName+":"+childName, namespaces=nsmap)[0]
+
 # Modify the original config.xml file from cordova to adjust it for our new native app
 def patchCordovaConfigXml():
     print("Customizing cordova config.xml")
     configXmlPath = os.path.realpath(os.path.join(RUNTIME_COPY_DIR_PATH, "config.xml"))
+    tree = et.parse(configXmlPath)
 
     nativePackage = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "packageid", "application/packageid")
-    print("Patching application package id: "+nativePackage)
 
-    tree = et.parse(configXmlPath)
-    root = tree.getroot()
-    root.attrib["android-packageName"] = nativePackage
-    root.attrib["ios-CFBundleIdentifier"] = nativePackage
+    # Package ID
+    print("Patching application package id: "+nativePackage)
+    widgetEL = tree.getroot() #<widget>
+    widgetEL.attrib["android-packageName"] = nativePackage
+    widgetEL.attrib["ios-CFBundleIdentifier"] = nativePackage
+
+    # Application name
+    appName = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "name", "application/name")
+    print("Patching application name: "+appName)
+    nameEL = lxmlGetFirstNamespacedChildByName(widgetEL, "name", "widgets", "http://www.w3.org/ns/widgets")
+    nameEL.text = appName
 
     # Overwrite the config file
     f = open(configXmlPath, 'w')
-    f.write(et.tostring(root, pretty_print=True))
+    f.write(et.tostring(widgetEL, pretty_print=True))
     f.close()
 
 def cloneRuntimeFolder():
@@ -295,12 +310,30 @@ def cloneRuntimeFolder():
     # TODO: CLONE TO A TMP FOLDER ON THE DEVICE INSTEAD
     copy_tree(RUNTIME_DIR_PATH, RUNTIME_COPY_DIR_PATH)
 
+# Converts package id such as "org.company.app" to "org/company/app"
+def androidGetStringifiedFoldersFromPackage():
+    nativePackage = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "packageid", "application/packageid")
+    return nativePackage.replace(".","/")
+
+def androidPatchPackageIdInSourceCode():
+    stringifiedFoldersFromPath = androidGetStringifiedFoldersFromPackage()
+    originalRuntimeSrcFolder = os.path.join(ANDROID_PLATFORM_SRC_DIR_PATH, "app/src/main/java/org/elastos/trinity/runtime")
+    renamedRuntimeSrcFolder = os.path.join(ANDROID_PLATFORM_SRC_DIR_PATH, "app/src/main/java/"+androidGetStringifiedFoldersFromPackage())
+
+    # On android, rework source code structure to match package id with the right subfolders
+    copy_tree(originalRuntimeSrcFolder, renamedRuntimeSrcFolder)
+    remove_tree(originalRuntimeSrcFolder) # delete the original source now that it is duplicated to the new package-based folder
+
+    # Replace all occurences of the original package id with the new package id, in android source files
+    findReplace(ANDROID_PLATFORM_SRC_DIR_PATH, "org.elastos.trinity.runtime", "org.elastos.trinity.dapp.diddemo", "*.java")
+
 ####################
 ### MAIN PROCESS ###
 ####################
 
 startTime = timeit.default_timer()
 
+# Make sure we are running in the right folder and all necessary files are present
 if TOOLCHAINS_DIR_NAME != "ToolChains" or \
    not os.path.isdir(RUNTIME_DIR_PATH):
     print('Error: You should "git clone" the "Elastos.Trinity" project with "--recurse-submodules" option.')
@@ -310,25 +343,23 @@ if TOOLCHAINS_DIR_NAME != "ToolChains" or \
 # Remove everything - restart totally clean
 runClobber()
 
-# Get user's configuration file
+# Get user's configuration file. This is our link between trinity world and user's dapp world
 TRINITY_NATIVE_CONFIG = loadTrinityNativeConfig()
 
-# Make a full copy of the runtime folder as we are going to modify many things
+# Make a full copy of the runtime folder as we are going to modify many things, so we will do all
+# the work in that copied folder.
 cloneRuntimeFolder()
 
 # Patch cordova for our native app config tweaks
 patchCordovaConfigXml()
 
+# TODO: patch version code and version name in platform specific files (gradle, plist, etc)
+
+# Rename default "org.elastos.trinity.runtime" related paths to the new app package id
+androidPatchPackageIdInSourceCode()
+
 # Build the target dApp
 # TMP buildDApp()
-
-# TMP TEST
-os.environ["TRINITY_NATIVE_BUILD"] = "1"
-test1 = os.path.join(ANDROID_PLATFORM_SRC_DIR_PATH, "app/src/main/java/org/elastos/trinity/runtime")
-test2 = os.path.join(ANDROID_PLATFORM_SRC_DIR_PATH, "app/src/main/java/org/elastos/trinity/dapp/diddemo")
-copy_tree(test1, test2)
-remove_tree(test1) # delete the original source now that they are duplicated to the new package-based folder
-findReplace(test2, "org.elastos.trinity.runtime", "org.elastos.trinity.dapp.diddemo", "*.java")
 
 # Update runtime config files
 print("Entering temporary Runtime folder at "+RUNTIME_COPY_DIR_PATH)
@@ -363,11 +394,12 @@ run_cmd("cordova build android " + build_type + " " + build_arg)
 # TMP run_cmd("cordova build electron " + build_type + " " + build_arg)
 # TMP run_cmd("cordova build ios " + build_type + " " + build_arg)
 
-# Copy outputs to the target output folder
+# Copy outputs to the target (user defined) output folder
 print("Copying generated content to the output folder")
 prepareOutputDir()
 copyAPKToOutput()
 
+# We are done
 print("Native Trinity application generated successfully")
 
 elapsed = timeit.default_timer() - startTime
