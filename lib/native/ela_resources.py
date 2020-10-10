@@ -111,7 +111,7 @@ def copyGeneratedResourcesToProject(genFolder, runtimeFolder):
     dstAssetsFolder = os.path.join(iosPlatformResFolder, "elastOS", "Images.xcassets", "AppIcon.appiconset")
     for icon in generatedIosAppIcons:
         iconPath = os.path.join(iosIconFolder, icon)
-        print("Overwriting ios app icon with user's app icon: "+iconPath)
+        print("Overwriting ios app icon with user's app icon: "+icon)
         shutil.copy(iconPath, dstAssetsFolder)
 
     # iOS splash screen
@@ -119,7 +119,7 @@ def copyGeneratedResourcesToProject(genFolder, runtimeFolder):
     dstAssetsFolder = os.path.join(iosPlatformResFolder, "elastOS", "Images.xcassets", "LaunchImage.launchimage")
     for splash in generatedIosSplashs:
         splashPath = os.path.join(iosSplashFolder, splash)
-        print("Overwriting ios splash screen with user's splsh image: "+splashPath)
+        print("Overwriting ios splash screen with user's splash image: "+splash)
         shutil.copy(splashPath, dstAssetsFolder)
 
     # TODO - desktop

@@ -36,6 +36,7 @@ TRINITY NATIVE CONFIG FILE EXAMPLE:
         }
     }
 """
+
 from importlib import reload
 import sys
 reload(sys)
@@ -51,18 +52,19 @@ import sys
 import textwrap
 import timeit
 import shutil
+import re
 from collections import OrderedDict
 from lxml import etree as et
-
-#####################
-### SCRIPT PARAMS ###
-#####################
 
 sys.path.append(os.path.abspath(os.path.dirname(os.path.realpath(__file__)) + '/../../lib'))
 sys.path.append(os.path.abspath(os.path.dirname(os.path.realpath(__file__)) + '/../../lib/native'))
 import ela_plugin
 import ela_util
 import ela_resources as ela_native_resources
+
+#####################
+### SCRIPT PARAMS ###
+#####################
 
 parser = argparse.ArgumentParser(description='Builds the Elastos.Trinity project together with a target dApp in order to generate a native application based on the Trinity runtime.',
                                  formatter_class=argparse.RawTextHelpFormatter)
@@ -186,10 +188,13 @@ def findReplace(directory, find, replace, filePattern):
 
 def findReplaceInFile(filepath, find, replace):
     with open(filepath) as f:
-        s = f.read()
-    s = s.replace(find, replace)
-    with open(filepath, "w") as f:
-        f.write(s)
+        content = f.read()
+    modifiedContent = content.replace(find, replace)
+
+    # In case the content was changed, overwrite the file
+    if content != modifiedContent:
+        with open(filepath, "w") as f:
+            f.write(modifiedContent)
 
 def runClean():
     os.chdir(TRINITY_PROJECT_DIR_PATH)
@@ -262,6 +267,9 @@ def getDAppSplashPath():
     relativeSplash = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "splashscreen", "application/splashscreen")
     return os.path.realpath(os.path.join(TRINITY_CONFIG_DIR_PATH, relativeSplash))
 
+def getAppName():
+    return ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "name", "application/name")
+
 def prepareOutputDir():
     outputDir = getOutputDir()
     if not os.path.exists(outputDir):
@@ -307,7 +315,7 @@ def patchCordovaConfigXml():
     widgetEL.attrib["ios-CFBundleIdentifier"] = nativePackage
 
     # Application name
-    appName = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "name", "application/name")
+    appName = getAppName()
     print("Patching application name: "+appName)
     nameEL = lxmlGetFirstNamespacedChildByName(widgetEL, "name", "widgets", "http://www.w3.org/ns/widgets")
     nameEL.text = appName
@@ -350,14 +358,26 @@ def androidPatchPackageIdInSourceCodeAfterCordovaPrepare():
     findReplace(ANDROID_PLATFORM_DIR_PATH, "org.elastos.trinity.runtime", nativePackage, "*.xml") # Cordova config to access plugins (res/xml/config.xml)
     findReplace(ANDROID_PLATFORM_DIR_PATH, "org.elastos.trinity.runtime", nativePackage, "*.json") # Cordova config to access plugins (android.json)
 
+def iosPatchAppNameInSourceCodeAfterCordovaPrepare():
+    # Objective-C source files contain references to #import elastOS-Swift.h. We must rename this with the
+    # new app name, making sure to remove any unwanted character like spaces
+    appName = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "name", "application/name")
+
+    importAppName = appName.replace(" ", "_")
+    newImport = importAppName+"-Swift.h"
+    print("iOS: replacing occurences of elastOS-Swift.h with "+newImport)
+    findReplace(IOS_PLATFORM_DIR_PATH, "elastOS-Swift.h", newImport, "*.m")
+    findReplace(IOS_PLATFORM_SRC_DIR_PATH, "elastOS-Swift.h", newImport, "*.m")
+
 # Because the app name and package id change, we also need to modify our patch system a bit
 def patchCordovaPreparePatches():
-    appName = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "name", "application/name")
+    appName = getAppName()
     stringifiedPackageNameFoldersFromPath = androidGetStringifiedFoldersFromPackage()
 
     # modify_xcode_project.js - app name folder is not "elastOS" any more
     modifyXcodeProjectScriptPath = os.path.realpath(os.path.join(getRuntimeCopyDirPath(), "scripts/modify_xcode_project.js"))
     findReplaceInFile(modifyXcodeProjectScriptPath, "platforms/ios/elastOS.xcodeproj", "platforms/ios/"+appName+".xcodeproj")
+    findReplaceInFile(modifyXcodeProjectScriptPath, "platform_res/ios/elastOS", "platform_res/ios/"+appName)
 
     # objc_files.patch - platforms/ios/elastOS is renamed to use the native app name
     objcFilesPatchPath = os.path.realpath(os.path.join(getRuntimeCopyDirPath(), "scripts/patches/after_platform_add_ios/objc_files.patch"))
@@ -367,6 +387,13 @@ def patchCordovaPreparePatches():
     removeFilesScriptPath = os.path.realpath(os.path.join(getRuntimeCopyDirPath(), "scripts/remove_files.js"))
     findReplaceInFile(removeFilesScriptPath, "org/elastos/trinity/runtime", stringifiedPackageNameFoldersFromPath)
     findReplaceInFile(removeFilesScriptPath, "platforms/ios/elastOS", "platforms/ios/"+appName)
+
+# Rename platform_res "elastOS" to app name for ios, to let resources be merged to the right destination
+# folder.
+def iosRenameAppFolder():
+    srcPath = os.path.join(IOS_PLATFORM_RES_DIR_PATH, "elastOS") # "platform_res/ios/elastOS"
+    dstPath = os.path.join(IOS_PLATFORM_RES_DIR_PATH, getAppName()) # "platform_res/ios/APP NAME"
+    os.rename(srcPath, dstPath)
 
 ####################
 ### MAIN PROCESS ###
@@ -402,8 +429,11 @@ if TOOLCHAINS_DIR_NAME != "ToolChains" or \
 
 # Compute paths in for Runtime folders
 ANDROID_PLATFORM_SRC_DIR_PATH=os.path.join(getRuntimeCopyDirPath(), "platform_src/android")
+IOS_PLATFORM_SRC_DIR_PATH=os.path.join(getRuntimeCopyDirPath(), "platform_src/ios")
 ANDROID_PLATFORM_RES_DIR_PATH=os.path.join(getRuntimeCopyDirPath(), "platform_res/android")
+IOS_PLATFORM_RES_DIR_PATH=os.path.join(getRuntimeCopyDirPath(), "platform_res/ios")
 ANDROID_PLATFORM_DIR_PATH=os.path.join(getRuntimeCopyDirPath(), "platforms/android")
+IOS_PLATFORM_DIR_PATH=os.path.join(getRuntimeCopyDirPath(), "platforms/ios")
 ANDROID_APP_OUT_DIR_PATH=os.path.join(ANDROID_PLATFORM_DIR_PATH, "app/build/outputs/apk/debug")
 BUILT_IN_DIR_PATH=os.path.join(getRuntimeCopyDirPath(), "www/built-in/")
 BUILT_IN_MIRROR_ANDROID=os.path.join(ANDROID_PLATFORM_DIR_PATH, "app/src/main/assets/www/built-in/")
@@ -423,10 +453,13 @@ ela_plugin.setup_paths(getRuntimeCopyDirPath(), PLUGIN_DIR_PATH)
 # Make a full copy of the runtime and plugins folder as we are going to modify many things, so we will do all
 # the work in those copied folder.
 cloneRuntimeFolder()
-# TMP clonePluginsFolder()
+clonePluginsFolder()
 
 # Make sure to have at least an empty www folder in the runtime folder, so that cordova doesn't complain we are not in a cordova folder
 ela_util.safeMkdir(os.path.join(getRuntimeCopyDirPath(), "www"))
+
+# Generate and deploy app icons and splash screens
+ela_native_resources.buildAppIconAndSplashScreen(getDAppIconPath(), getDAppSplashPath(), getResourcesBuildDirPath(), getRuntimeCopyDirPath())
 
 # Patch cordova for our native app config tweaks
 patchCordovaConfigXml()
@@ -434,14 +467,14 @@ patchCordovaConfigXml()
 # TODO: patch version code and version name in platform specific files (gradle, plist, etc)
 # TODO: add scheme to handle deep linking
 
+# Rename folder on iOS
+iosRenameAppFolder()
+
 # Rename default "org.elastos.trinity.runtime" related paths to the new app package id
 androidPatchPackageIdInSourceCodeBeforeCordovaPrepare()
 
 # Modify the "patch" files themselves
 patchCordovaPreparePatches()
-
-# Generate and deploy app icons and splash screens
-ela_native_resources.buildAppIconAndSplashScreen(getDAppIconPath(), getDAppSplashPath(), getResourcesBuildDirPath(), getRuntimeCopyDirPath())
 
 # Build the target dApp
 # TMP buildDApp()
@@ -457,10 +490,11 @@ print("Installing NPM dependencies for the trinity Runtime.")
 run_cmd("npm install")
 """
 print(os.getcwd())
-run_cmd("cordova prepare --verbose")
+run_cmd("cordova prepare")
 
 # Run some post cordova prepare operations
 androidPatchPackageIdInSourceCodeAfterCordovaPrepare()
+iosPatchAppNameInSourceCodeAfterCordovaPrepare()
 
 """ TMP REMOVED ELECTRON - RESTORE THIS BLOCK
 # Electron specific preparation step

@@ -108,12 +108,12 @@ def plugin_convertTS2JS_dir(plugin_dir):
     global runtime_dir_path, plugins_dir_path, rt_plugin_dir_path, runtime_plugin_path
     ensure_paths_are_setup()
 
-    print("Converting TS to JS with plugin dir: "+plugin_dir)
+    #print("Converting TS to JS with plugin dir: "+plugin_dir)
 
     dirs = os.listdir(plugin_dir)
     for dir in dirs:
         filepath = os.path.join(plugin_dir, dir)
-        print("Converting TS to JS with plugin sub-dir: "+filepath)
+        #print("Converting TS to JS with plugin sub-dir: "+filepath)
         if os.path.isdir(filepath):
             tsconfig = os.path.join(filepath, "www/tsconfig.json")
             if os.path.isfile(tsconfig):
