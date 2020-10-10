@@ -108,7 +108,7 @@ def remove_tree(directory):
         # Make sure the deletion was really successful (no file system lock):
         if os.path.exists(directory):
             print("Error: folder could not be totally deleted. Check possible file system lock: "+directory)
-            os.exit(1)
+            sys.exit(1)
 
 def copy_tree(src, dst, force_clean=False):
     print("Copying " + src + " To " + dst)
@@ -211,8 +211,12 @@ def runClean():
     remove_tree("platforms")
     remove_tree("plugins")
 
-def runClobber():
-    print("Starting fresh. Deleting previous build files.")
+def removeBuildFolder():
+    print("Removing the main build folder.")
+    ela_util.safeRemove(getBuildOutputDir())
+
+def cleanupBuildFolder():
+    print("Cleaning up a few folders for a fresh start.")
     os.chdir(getRuntimeCopyDirPath())
 
     remove_tree("node_modules")
@@ -221,8 +225,6 @@ def runClobber():
     remove_tree("platforms")
     remove_tree("plugins")
     remove_tree("www")
-
-    remove_tree(getRuntimeCopyDirPath())
 
 def loadTrinityNativeConfig():
     if not os.path.isfile(TRINITY_CONFIG_PATH):
@@ -288,9 +290,10 @@ def getIntentScheme():
     return {"scheme":scheme, "path":path}
 
 def prepareOutputDir():
+    print("Preparing output folder")
     outputDir = getOutputDir()
-    if not os.path.exists(outputDir):
-        os.mkdir(outputDir)
+    ela_util.safeMkdir(outputDir)
+    ela_util.safeMkdir(getBuildOutputDir())
 
 # Copy the generated native APK to user's defined output folder
 def copyAPKToOutput():
@@ -345,6 +348,7 @@ def patchCordovaConfigXml():
 def cloneRuntimeFolder():
     print("Cloning the Runtime folder")
     # Copy items one by one to avoid slow copies that include generated folders such as node_modules or origin_platforms
+    ela_util.safeMkdir(getRuntimeCopyDirPath())
     copy_tree(RUNTIME_DIR_PATH+"/native_apps", getRuntimeCopyDirPath()+"/native_apps")
     copy_tree(RUNTIME_DIR_PATH+"/platform_res", getRuntimeCopyDirPath()+"/platform_res")
     copy_tree(RUNTIME_DIR_PATH+"/platform_src", getRuntimeCopyDirPath()+"/platform_src")
@@ -481,7 +485,13 @@ CONFIG_MIRROR_IOS=os.path.join(getRuntimeCopyDirPath(), "platforms/ios/www/confi
 
 ela_plugin.setup_paths(getRuntimeCopyDirPath(), PLUGIN_DIR_PATH)
 
-# TODO: Check system requirements - xcode, android studio, git, etc
+# TODO: Check system requirements - xcode, android studio, git, cocoapod, etc
+
+# Remove the build folder
+removeBuildFolder()
+
+# Re-create the build folder
+prepareOutputDir()
 
 # Make a full copy of the runtime and plugins folder as we are going to modify many things, so we will do all
 # the work in those copied folder.
@@ -489,10 +499,12 @@ cloneRuntimeFolder()
 clonePluginsFolder()
 
 # Remove everything from inside the copied folders - restart totally clean
-# TMP runClobber()
+cleanupBuildFolder()
 
-# Make sure to have at least an empty www folder in the runtime folder, so that cordova doesn't complain we are not in a cordova folder
+
+# Make sure to have at least an empty www and platforms folder in the runtime folder, so that cordova doesn't complain we are not in a cordova folder
 ela_util.safeMkdir(os.path.join(getRuntimeCopyDirPath(), "www"))
+ela_util.safeMkdir(os.path.join(getRuntimeCopyDirPath(), "platforms"))
 
 # Generate and deploy app icons and splash screens
 ela_native_resources.buildAppIconAndSplashScreen(getDAppIconPath(), getDAppSplashPath(), getResourcesBuildDirPath(), getRuntimeCopyDirPath())
@@ -521,11 +533,10 @@ os.chdir(getRuntimeCopyDirPath())
 copy_tree("www_files", "www", False)
 updateConfig()
 ela_plugin.plugin_prepare(True)
-""" TMP REMOVED
+
 print("Installing NPM dependencies for the trinity Runtime.")
 run_cmd("npm install")
-"""
-print(os.getcwd())
+
 run_cmd("cordova prepare")
 
 # Run some post cordova prepare operations
@@ -555,7 +566,6 @@ run_cmd("cordova build android " + build_type + " " + build_arg)
 
 # Copy outputs to the target (user defined) output folder
 print("Copying generated content to the output folder")
-prepareOutputDir()
 copyAPKToOutput()
 
 # We are done
