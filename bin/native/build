@@ -28,7 +28,10 @@ TRINITY NATIVE CONFIG FILE EXAMPLE:
             "packageid": "org.elastos.trinity.dapp.diddemo",
             "icon": "../src/assets/images/logo.png",
             "splashscreen": "../src/assets/images/logo.png",
-            "link-prefix": "https://diddemo.trinity-tech.io/",
+            "intentscheme": {
+                "scheme": "https",
+                "path": "diddemo.trinity-tech.io"
+            },
             "version": {
                 "code": 101,
                 "name": "1.0.1"
@@ -179,6 +182,10 @@ def updateConfig():
     if args.buildvariant:
         updateConfigFile("build.variant", args.buildvariant)
 
+    # Update intent scheme
+    intentScheme = getIntentScheme()
+    updateConfigFile("native.scheme", intentScheme)
+
 # findReplace("some_dir", "find this", "replace with this", "*.txt")
 def findReplace(directory, find, replace, filePattern):
     for path, dirs, files in os.walk(os.path.abspath(directory)):
@@ -195,22 +202,25 @@ def findReplaceInFile(filepath, find, replace):
     if content != modifiedContent:
         with open(filepath, "w") as f:
             f.write(modifiedContent)
+        return True
+    else:
+        return False
 
 def runClean():
-    os.chdir(TRINITY_PROJECT_DIR_PATH)
-    remove_tree("Runtime/platforms")
-    remove_tree("Runtime/plugins")
+    os.chdir(getRuntimeCopyDirPath())
+    remove_tree("platforms")
+    remove_tree("plugins")
 
 def runClobber():
     print("Starting fresh. Deleting previous build files.")
-    os.chdir(TRINITY_PROJECT_DIR_PATH)
+    os.chdir(getRuntimeCopyDirPath())
 
-    remove_tree("Runtime/node_modules")
-    remove_tree("Runtime/origin_platforms")
-    remove_tree("Runtime/origin_plugins")
-    remove_tree("Runtime/platforms")
-    remove_tree("Runtime/plugins")
-    remove_tree("Runtime/www")
+    remove_tree("node_modules")
+    remove_tree("origin_platforms")
+    remove_tree("origin_plugins")
+    remove_tree("platforms")
+    remove_tree("plugins")
+    remove_tree("www")
 
     remove_tree(getRuntimeCopyDirPath())
 
@@ -270,6 +280,13 @@ def getDAppSplashPath():
 def getAppName():
     return ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "name", "application/name")
 
+def getIntentScheme():
+    intentScheme = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "intentscheme", "application/intentscheme")
+    scheme = ensureTrinityConfigFieldPresence(intentScheme, "scheme", "application/intentscheme/scheme")
+    path = ensureTrinityConfigFieldPresence(intentScheme, "path", "application/intentscheme/path")
+
+    return {"scheme":scheme, "path":path}
+
 def prepareOutputDir():
     outputDir = getOutputDir()
     if not os.path.exists(outputDir):
@@ -327,7 +344,16 @@ def patchCordovaConfigXml():
 
 def cloneRuntimeFolder():
     print("Cloning the Runtime folder")
-    copy_tree(RUNTIME_DIR_PATH, getRuntimeCopyDirPath())
+    # Copy items one by one to avoid slow copies that include generated folders such as node_modules or origin_platforms
+    copy_tree(RUNTIME_DIR_PATH+"/native_apps", getRuntimeCopyDirPath()+"/native_apps")
+    copy_tree(RUNTIME_DIR_PATH+"/platform_res", getRuntimeCopyDirPath()+"/platform_res")
+    copy_tree(RUNTIME_DIR_PATH+"/platform_src", getRuntimeCopyDirPath()+"/platform_src")
+    copy_tree(RUNTIME_DIR_PATH+"/plugin_src", getRuntimeCopyDirPath()+"/plugin_src")
+    copy_tree(RUNTIME_DIR_PATH+"/res", getRuntimeCopyDirPath()+"/res")
+    copy_tree(RUNTIME_DIR_PATH+"/scripts", getRuntimeCopyDirPath()+"/scripts")
+    copy_tree(RUNTIME_DIR_PATH+"/www_files", getRuntimeCopyDirPath()+"/www_files")
+    shutil.copy2(RUNTIME_DIR_PATH+"/config.xml", getRuntimeCopyDirPath()+"/config.xml")
+    shutil.copy2(RUNTIME_DIR_PATH+"/package.json", getRuntimeCopyDirPath()+"/package.json")
 
 def clonePluginsFolder():
     print("Cloning the Plugins folder")
@@ -358,6 +384,10 @@ def androidPatchPackageIdInSourceCodeAfterCordovaPrepare():
     findReplace(ANDROID_PLATFORM_DIR_PATH, "org.elastos.trinity.runtime", nativePackage, "*.xml") # Cordova config to access plugins (res/xml/config.xml)
     findReplace(ANDROID_PLATFORM_DIR_PATH, "org.elastos.trinity.runtime", nativePackage, "*.json") # Cordova config to access plugins (android.json)
 
+def androidPathManifestAfterCordovaPrepare():
+    print("HEYYYY")
+    findReplaceInFile(ANDROID_PLATFORM_DIR_PATH+"/app/src/main/AndroidManifest.xml", "encoding", "TODO")
+
 def iosPatchAppNameInSourceCodeAfterCordovaPrepare():
     # Objective-C source files contain references to #import elastOS-Swift.h. We must rename this with the
     # new app name, making sure to remove any unwanted character like spaces
@@ -387,6 +417,12 @@ def patchCordovaPreparePatches():
     removeFilesScriptPath = os.path.realpath(os.path.join(getRuntimeCopyDirPath(), "scripts/remove_files.js"))
     findReplaceInFile(removeFilesScriptPath, "org/elastos/trinity/runtime", stringifiedPackageNameFoldersFromPath)
     findReplaceInFile(removeFilesScriptPath, "platforms/ios/elastOS", "platforms/ios/"+appName)
+
+    # AndroidManifest.xml
+    manifestPath = os.path.realpath(os.path.join(getRuntimeCopyDirPath(), "scripts/patches/after_platform_add_android/manifest.patch"))
+    intentScheme = getIntentScheme()
+    newSchemeDataEntry = "<data android:host=\""+intentScheme["path"]+"\" android:scheme=\""+intentScheme["scheme"]+"\" />"
+    findReplaceInFile(manifestPath, "<data android:host=\"scheme.elastos.org\" android:scheme=\"https\" />", newSchemeDataEntry)
 
 # Rename platform_res "elastOS" to app name for ios, to let resources be merged to the right destination
 # folder.
@@ -447,13 +483,13 @@ ela_plugin.setup_paths(getRuntimeCopyDirPath(), PLUGIN_DIR_PATH)
 
 # TODO: Check system requirements - xcode, android studio, git, etc
 
-# Remove everything - restart totally clean
-# TMP runClobber()
-
 # Make a full copy of the runtime and plugins folder as we are going to modify many things, so we will do all
 # the work in those copied folder.
 cloneRuntimeFolder()
 clonePluginsFolder()
+
+# Remove everything from inside the copied folders - restart totally clean
+# TMP runClobber()
 
 # Make sure to have at least an empty www folder in the runtime folder, so that cordova doesn't complain we are not in a cordova folder
 ela_util.safeMkdir(os.path.join(getRuntimeCopyDirPath(), "www"))
@@ -468,7 +504,7 @@ patchCordovaConfigXml()
 # TODO: add scheme to handle deep linking
 
 # Rename folder on iOS
-iosRenameAppFolder()
+# TMP iosRenameAppFolder()
 
 # Rename default "org.elastos.trinity.runtime" related paths to the new app package id
 androidPatchPackageIdInSourceCodeBeforeCordovaPrepare()
@@ -477,7 +513,7 @@ androidPatchPackageIdInSourceCodeBeforeCordovaPrepare()
 patchCordovaPreparePatches()
 
 # Build the target dApp
-# TMP buildDApp()
+buildDApp()
 
 # Update runtime config files
 print("Entering output Runtime folder at "+getRuntimeCopyDirPath())
@@ -494,6 +530,7 @@ run_cmd("cordova prepare")
 
 # Run some post cordova prepare operations
 androidPatchPackageIdInSourceCodeAfterCordovaPrepare()
+#androidPathManifestAfterCordovaPrepare()
 iosPatchAppNameInSourceCodeAfterCordovaPrepare()
 
 """ TMP REMOVED ELECTRON - RESTORE THIS BLOCK

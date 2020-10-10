@@ -275,6 +275,8 @@ def updateConfig():
 
 startTime = timeit.default_timer()
 
+ela_plugin.setup_paths(RUNTIME_DIR_PATH, PLUGIN_DIR_PATH)
+
 if TOOLCHAINS_DIR_NAME != "ToolChains" or \
    not os.path.isdir(RUNTIME_DIR_PATH) or \
    not os.path.isdir(LAUNCHER_DIR_PATH):
