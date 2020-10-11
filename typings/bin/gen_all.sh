@@ -5,15 +5,15 @@ pluginsroot=$dir/../../../Plugins
 runtimeroot=$dir/../../../Runtime
 runtimepluginsroot=$runtimeroot/plugins
 
-if [ ! -d $pluginsroot ] 
+if [ ! -d $pluginsroot ]
 then
-    echo "Directory $pluginsroot does not exist." 
+    echo "Directory $pluginsroot does not exist."
     exit -1
 fi
 
-if [ ! -d $runtimepluginsroot ] 
+if [ ! -d $runtimepluginsroot ]
 then
-    echo "Directory $runtimepluginsroot does not exist." 
+    echo "Directory $runtimepluginsroot does not exist."
     exit -1
 fi
 
@@ -78,9 +78,6 @@ echo -e "\033[31mNO TS TYPES YET !\033[0m"
 # cordova-plugin-ionic-keyboard
 echo "Copying Ionic Keyboard types..."
 echo -e "\033[31mNO TS TYPES YET !\033[0m"
-# cordova-plugin-media-capture
-echo "Copying Media capture types..."
-cat $runtimepluginsroot/cordova-plugin-media-capture/types/index.d.ts > $outdir/cordova-plugin-media-capture.d.ts
 # cordova-plugin-network-information
 echo "Copying Network information types..."
 cat $runtimepluginsroot/cordova-plugin-network-information/types/index.d.ts > $outdir/cordova-plugin-network-information.d.ts
@@ -99,6 +96,9 @@ cat $runtimepluginsroot/cordova-plugin-vibration/types/index.d.ts > $outdir/cord
 # elastos-trinity-plugins-media
 echo "Copying Media types..."
 cat $runtimepluginsroot/elastos-trinity-plugins-media/types/index.d.ts > $outdir/elastos-trinity-plugins-media.d.ts
+# elastos-trinity-plugins-capture
+echo "Copying Media capture types..."
+cat $runtimepluginsroot/elastos-trinity-plugins-capture/types/index.d.ts > $outdir/elastos-trinity-plugins-capture.d.ts
 # elastos-trinity-plugins-qrscanner
 echo "Copying QRScanner types..."
 echo -e "\033[31mNO TS TYPES YET !\033[0m"
