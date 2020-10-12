@@ -25,7 +25,7 @@ TRINITY NATIVE CONFIG FILE EXAMPLE:
         },
         "application": {
             "name": "Elastos DID Demo",
-            "packageid": "org.elastos.trinity.dapp.diddemo",
+            "nativepackageid": "org.elastos.trinity.dapp.diddemo",
             "icon": "../src/assets/images/logo.png",
             "splashscreen": "../src/assets/images/logo.png",
             "intentscheme": {
@@ -173,8 +173,7 @@ def updateConfig():
     updateConfigFile("build.type", "native")
 
     # Define which dapp to start when trinity starts
-    nativePackage = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "packageid", "application/packageid")
-    updateConfigFile("native.startup.dapppackage", nativePackage)
+    updateConfigFile("native.startup.dapppackage", APP_MANIFEST_CONFIG["id"])
 
     # Enable developer mode to be able to upgrade EPKS - TODO: Should be only when we build for DEBUG!
     updateConfigFile("developer.mode", True)
@@ -238,10 +237,37 @@ def loadTrinityNativeConfig():
     file_in.close()
     return data
 
-def buildDApp():
-    relativeAppSrcPath = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["build"], "root", "build/root")
+def checkTrinityNativeConfig():
+    # Ensure the native package id contains only a-zA-Z0-9
+    nativePackage = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "nativepackageid", "application/nativepackageid")
+    if not re.match("^[a-zA-Z][a-zA-Z0-9_]+(\.[a-zA-Z][a-zA-Z0-9_]*)+$", nativePackage):
+        print("Error: native package id must contains only a-ZA-Z0-9_")
+        sys.exit(1)
 
+# Loads the app manifest contained in src/assets/manifest.json
+def loadAppManifest():
+    appPath = getAppRoot()
+    manifestPath = getAppManifestPath()
+    if not os.path.isfile(manifestPath):
+        print("Error: No dapp manifest.json found at "+manifestPath)
+        sys.exit(1)
+
+    file_in = open(manifestPath, "r")
+    data = json.load(file_in, object_pairs_hook=OrderedDict)
+    file_in.close()
+    return data
+
+def getAppRoot():
+    relativeAppSrcPath = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["build"], "root", "build/root")
     appPath = os.path.realpath(os.path.join(TRINITY_CONFIG_DIR_PATH, relativeAppSrcPath))
+    return appPath
+
+def getAppManifestPath():
+    appPath = getAppRoot()
+    return os.path.realpath(os.path.join(getAppRoot(), "src", "assets", "manifest.json"))
+
+def buildDApp():
+    appPath = getAppRoot()
     if not os.path.isdir(appPath):
         print("Error: No ionic application at the given root path")
         sys.exit(1)
@@ -326,7 +352,7 @@ def patchCordovaConfigXml():
     configXmlPath = os.path.realpath(os.path.join(getRuntimeCopyDirPath(), "config.xml"))
     tree = et.parse(configXmlPath)
 
-    nativePackage = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "packageid", "application/packageid")
+    nativePackage = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "nativepackageid", "application/nativepackageid")
 
     # Package ID
     print("Patching application package id: "+nativePackage)
@@ -348,6 +374,7 @@ def patchCordovaConfigXml():
 def cloneRuntimeFolder():
     print("Cloning the Runtime folder")
     # Copy items one by one to avoid slow copies that include generated folders such as node_modules or origin_platforms
+    # and make sure to start with something clean
     ela_util.safeMkdir(getRuntimeCopyDirPath())
     copy_tree(RUNTIME_DIR_PATH+"/native_apps", getRuntimeCopyDirPath()+"/native_apps")
     copy_tree(RUNTIME_DIR_PATH+"/platform_res", getRuntimeCopyDirPath()+"/platform_res")
@@ -365,11 +392,11 @@ def clonePluginsFolder():
 
 # Converts package id such as "org.company.app" to "org/company/app"
 def androidGetStringifiedFoldersFromPackage():
-    nativePackage = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "packageid", "application/packageid")
+    nativePackage = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "nativepackageid", "application/nativepackageid")
     return nativePackage.replace(".","/")
 
 def androidPatchPackageIdInSourceCodeBeforeCordovaPrepare():
-    nativePackage = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "packageid", "application/packageid")
+    nativePackage = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "nativepackageid", "application/nativepackageid")
     stringifiedFoldersFromPath = androidGetStringifiedFoldersFromPackage()
     originalRuntimeSrcFolder = os.path.join(ANDROID_PLATFORM_SRC_DIR_PATH, "app/src/main/java/org/elastos/trinity/runtime")
     renamedRuntimeSrcFolder = os.path.join(ANDROID_PLATFORM_SRC_DIR_PATH, "app/src/main/java/"+androidGetStringifiedFoldersFromPackage())
@@ -383,13 +410,12 @@ def androidPatchPackageIdInSourceCodeBeforeCordovaPrepare():
     findReplace(ANDROID_PLATFORM_RES_DIR_PATH, "org.elastos.trinity.runtime", nativePackage, "*.xml") # android layout files
 
 def androidPatchPackageIdInSourceCodeAfterCordovaPrepare():
-    nativePackage = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "packageid", "application/packageid")
+    nativePackage = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "nativepackageid", "application/nativepackageid")
     findReplace(ANDROID_PLATFORM_DIR_PATH, "org.elastos.trinity.runtime", nativePackage, "*.java")
     findReplace(ANDROID_PLATFORM_DIR_PATH, "org.elastos.trinity.runtime", nativePackage, "*.xml") # Cordova config to access plugins (res/xml/config.xml)
     findReplace(ANDROID_PLATFORM_DIR_PATH, "org.elastos.trinity.runtime", nativePackage, "*.json") # Cordova config to access plugins (android.json)
 
 def androidPathManifestAfterCordovaPrepare():
-    print("HEYYYY")
     findReplaceInFile(ANDROID_PLATFORM_DIR_PATH+"/app/src/main/AndroidManifest.xml", "encoding", "TODO")
 
 def iosPatchAppNameInSourceCodeAfterCordovaPrepare():
@@ -427,6 +453,9 @@ def patchCordovaPreparePatches():
     intentScheme = getIntentScheme()
     newSchemeDataEntry = "<data android:host=\""+intentScheme["path"]+"\" android:scheme=\""+intentScheme["scheme"]+"\" />"
     findReplaceInFile(manifestPath, "<data android:host=\"scheme.elastos.org\" android:scheme=\"https\" />", newSchemeDataEntry)
+    # Replace elastOS intent filters with fake/unreachable paths (easier than removing them)
+    findReplaceInFile(manifestPath, "did.trinity-tech.io", "xxxxxxxx")
+    findReplaceInFile(manifestPath, "wallet.trinity-tech.io", "xxxxxxxx")
 
 # Rename platform_res "elastOS" to app name for ios, to let resources be merged to the right destination
 # folder.
@@ -459,6 +488,12 @@ TRINITY_CONFIG_DIR_PATH = os.path.dirname(TRINITY_CONFIG_PATH)
 
 # Get user's configuration file. This is our link between trinity world and user's dapp world
 TRINITY_NATIVE_CONFIG = loadTrinityNativeConfig()
+
+# Check a few field format/values in user's config
+checkTrinityNativeConfig()
+
+# Get user's app manifest configuration
+APP_MANIFEST_CONFIG = loadAppManifest()
 
 # Make sure we are running in the right folder and all necessary files are present
 if TOOLCHAINS_DIR_NAME != "ToolChains" or \
@@ -500,7 +535,6 @@ clonePluginsFolder()
 
 # Remove everything from inside the copied folders - restart totally clean
 cleanupBuildFolder()
-
 
 # Make sure to have at least an empty www and platforms folder in the runtime folder, so that cordova doesn't complain we are not in a cordova folder
 ela_util.safeMkdir(os.path.join(getRuntimeCopyDirPath(), "www"))
