@@ -415,9 +415,6 @@ def androidPatchPackageIdInSourceCodeAfterCordovaPrepare():
     findReplace(ANDROID_PLATFORM_DIR_PATH, "org.elastos.trinity.runtime", nativePackage, "*.xml") # Cordova config to access plugins (res/xml/config.xml)
     findReplace(ANDROID_PLATFORM_DIR_PATH, "org.elastos.trinity.runtime", nativePackage, "*.json") # Cordova config to access plugins (android.json)
 
-def androidPathManifestAfterCordovaPrepare():
-    findReplaceInFile(ANDROID_PLATFORM_DIR_PATH+"/app/src/main/AndroidManifest.xml", "encoding", "TODO")
-
 def iosPatchAppNameInSourceCodeAfterCordovaPrepare():
     # Objective-C source files contain references to #import elastOS-Swift.h. We must rename this with the
     # new app name, making sure to remove any unwanted character like spaces
@@ -547,10 +544,9 @@ ela_native_resources.buildAppIconAndSplashScreen(getDAppIconPath(), getDAppSplas
 patchCordovaConfigXml()
 
 # TODO: patch version code and version name in platform specific files (gradle, plist, etc)
-# TODO: add scheme to handle deep linking
 
 # Rename folder on iOS
-# TMP iosRenameAppFolder()
+iosRenameAppFolder()
 
 # Rename default "org.elastos.trinity.runtime" related paths to the new app package id
 androidPatchPackageIdInSourceCodeBeforeCordovaPrepare()
@@ -575,7 +571,6 @@ run_cmd("cordova prepare")
 
 # Run some post cordova prepare operations
 androidPatchPackageIdInSourceCodeAfterCordovaPrepare()
-#androidPathManifestAfterCordovaPrepare()
 iosPatchAppNameInSourceCodeAfterCordovaPrepare()
 
 """ TMP REMOVED ELECTRON - RESTORE THIS BLOCK

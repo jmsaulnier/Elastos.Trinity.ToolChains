@@ -49,7 +49,8 @@ def generateCordovaResources(genFolder):
     print("Generating cordova resources")
 
     os.chdir(genFolder)
-    run_cmd("cordova-res")
+    run_cmd("cordova-res android")
+    run_cmd("cordova-res ios")
 
 def replaceAndroidAppIcons(platformResPath, dirpath, iconPath):
     resDirPath = os.path.join(platformResPath, "app/src/main/res")
