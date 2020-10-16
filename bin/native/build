@@ -237,11 +237,17 @@ def loadTrinityNativeConfig():
     file_in.close()
     return data
 
-def checkTrinityNativeConfig():
+def checkUserConfiguration():
     # Ensure the native package id contains only a-zA-Z0-9
     nativePackage = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["application"], "nativepackageid", "application/nativepackageid")
     if not re.match("^[a-zA-Z][a-zA-Z0-9_]+(\.[a-zA-Z][a-zA-Z0-9_]*)+$", nativePackage):
         print("Error: native package id must contains only a-ZA-Z0-9_")
+        sys.exit(1)
+
+    # The app manifest must contain the application DID string to be able to secure intents / hive storage
+    if not "did" in APP_MANIFEST_CONFIG:
+        print("Error: In order to secure inter app communications, Trinity native dApps require an explicit application DID in the dApps's manifest.json.")
+        print("Please use the developer tool dApp to publish your application identity first, and set \"did\": \"did:elastos:yourappdid\" in your manifest.json.")
         sys.exit(1)
 
 # Loads the app manifest contained in src/assets/manifest.json
@@ -486,11 +492,11 @@ TRINITY_CONFIG_DIR_PATH = os.path.dirname(TRINITY_CONFIG_PATH)
 # Get user's configuration file. This is our link between trinity world and user's dapp world
 TRINITY_NATIVE_CONFIG = loadTrinityNativeConfig()
 
-# Check a few field format/values in user's config
-checkTrinityNativeConfig()
-
 # Get user's app manifest configuration
 APP_MANIFEST_CONFIG = loadAppManifest()
+
+# Check a few field format/values in user's config
+checkUserConfiguration()
 
 # Make sure we are running in the right folder and all necessary files are present
 if TOOLCHAINS_DIR_NAME != "ToolChains" or \
