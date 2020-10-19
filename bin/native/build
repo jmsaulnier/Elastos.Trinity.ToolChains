@@ -283,10 +283,15 @@ def getAppManifestPath():
     appPath = getAppRoot()
     return os.path.realpath(os.path.join(getAppRoot(), "src", "assets", "manifest.json"))
 
-def buildDApp():
-    appPath = getAppRoot()
+def buildDApps():
+    # Build the user dapp
+    buildDApp(getAppRoot())
+    # Build the qr code scanner
+    buildDApp(os.path.join(IONIC_DAPPS_DIR_PATH, "Qrcodescanner"))
+
+def buildDApp(appPath):
     if not os.path.isdir(appPath):
-        print("Error: No ionic application at the given root path")
+        print("Error: No ionic application at the given root path: "+appPath)
         sys.exit(1)
 
     build_app(appPath, "all", True, "www")
@@ -511,6 +516,7 @@ TRINITY_PROJECT_DIR_PATH=os.path.realpath(os.path.join(TOOLCHAINS_DIR_PATH, ".."
 # Trinity project paths
 RUNTIME_DIR_PATH=os.path.join(TRINITY_PROJECT_DIR_PATH, "Runtime")
 PLUGIN_DIR_PATH=os.path.join(TRINITY_PROJECT_DIR_PATH, "Plugins")
+IONIC_DAPPS_DIR_PATH=os.path.join(TRINITY_PROJECT_DIR_PATH, "Dapps/Ionic")
 
 # Remember start time
 startTime = timeit.default_timer()
@@ -590,8 +596,8 @@ androidPatchPackageIdInSourceCodeBeforeCordovaPrepare()
 # Modify the "patch" files themselves
 patchCordovaPreparePatches()
 
-# Build the target dApp
-buildDApp()
+# Build the target dApp and additional requirements such as the qr code scanner app
+buildDApps()
 
 # Update runtime config files
 print("Entering output Runtime folder at "+getRuntimeCopyDirPath())
