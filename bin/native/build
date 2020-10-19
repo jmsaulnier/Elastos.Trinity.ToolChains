@@ -65,6 +65,17 @@ import ela_plugin
 import ela_util
 import ela_resources as ela_native_resources
 
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 #####################
 ### SCRIPT PARAMS ###
 #####################
@@ -467,6 +478,25 @@ def iosRenameAppFolder():
     dstPath = os.path.join(IOS_PLATFORM_RES_DIR_PATH, getAppName()) # "platform_res/ios/APP NAME"
     os.rename(srcPath, dstPath)
 
+# Displays user friendly information at the end of the build, to explain user where he can find some
+# important resources, or what should be done next
+def displayCompletionFriendlyInformation():
+    print("")
+    print(bcolors.OKCYAN+"#####################################"+bcolors.ENDC)
+    print(bcolors.OKCYAN+"########### WHAT'S NEXT? ############"+bcolors.ENDC)
+    print(bcolors.OKCYAN+"#####################################"+bcolors.ENDC)
+    print("# ")
+    print("# - Android Studio project: "+bcolors.WARNING+ANDROID_PLATFORM_DIR_PATH+bcolors.ENDC)
+    print("#      - Plug your android device to your computer (or use an emulator)")
+    print("#      - Open Android Studio and run the project")
+    print("# ")
+    print("# - XCode iOS project: "+bcolors.WARNING+IOS_PLATFORM_DIR_PATH+bcolors.ENDC)
+    print("#      - Plug your iOS device to your computer (or use a simulator)")
+    print("#      - Open XCode and run the project")
+    print("# ")
+    print(bcolors.OKCYAN+"#####################################"+bcolors.ENDC)
+    print("")
+
 ####################
 ### MAIN PROCESS ###
 ####################
@@ -604,9 +634,12 @@ print("Copying generated content to the output folder")
 copyAPKToOutput()
 
 # We are done
-print("Native Trinity application generated successfully")
+print(bcolors.OKGREEN+"Native Trinity application generated successfully"+bcolors.ENDC)
 
 elapsed = timeit.default_timer() - startTime
 minutes = elapsed / 60
 seconds = elapsed % 60
 print('Elapsed time: [%d min %0.2fs]' % (minutes, seconds))
+
+# Display user friendly information for what's next
+displayCompletionFriendlyInformation()
