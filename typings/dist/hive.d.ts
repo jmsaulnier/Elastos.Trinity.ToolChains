@@ -30,15 +30,18 @@
 * <br><br>
 * Declaration:
 * <br>
+* ```typescript
 * declare let hiveManager: HivePlugin.HiveManager;
-* ...
 * let client = await hiveManager.getClient(...);
 * let myVault = client.getVault(myDid);
 * myVault.getDatabase().insertOne(...);
+* ```
 */
 
 declare namespace HivePlugin {
+    /** @hidden */
     type Opaque<T, K> = T & { __opaque__: K };
+    /** @hidden */
     type Int = Opaque<number, 'Int'>;
 
     export interface JSONObject {
@@ -243,10 +246,17 @@ declare namespace HivePlugin {
         }
 
         /**
-         * Result after calls to insert operations.
+         * Result after calls to insertOne() operations.
          */
-        export type InsertResult = {
-            insertedIds: string[]
+        export type InsertOneResult = {
+            insertedId: string;
+        }
+
+        /**
+         * Result after calls to insertMany() operations.
+         */
+        export type InsertManyResult = {
+            insertedIds: string[];
         }
 
         /**
@@ -304,7 +314,7 @@ declare namespace HivePlugin {
             /**
              * Inserts a new document in the given collection, into current user's personal vault.
              */
-            insertOne(collectionName: string, document: JSONObject, options?: InsertOptions): Promise<InsertResult>;
+            insertOne(collectionName: string, document: JSONObject, options?: InsertOptions): Promise<InsertOneResult>;
 
             /**
              * Updates at most one existing document based on the given query filter and using the given
@@ -425,8 +435,12 @@ declare namespace HivePlugin {
              * Call parameters (params field) are meant to be used by scripts on the server side, for example as injected parameters
              * to mongo queries. Ex: if "params" contains a field "name":"someone", then the called script is able to reference this parameter
              * using "$params.name".
+             *
+             * The appDID parameter is used to override the default app did target that is (optionally) embedded in the authentication
+             * challenge response. This allows calling scripts from other application contexts in case they chose to made their
+             * script accessible anonimously.
              */
-            call(functionName: string, params?: JSONObject): Promise<JSONObject>;
+            call(functionName: string, params?: JSONObject, appDID?: string): Promise<JSONObject>;
         }
     }
 
@@ -521,11 +535,11 @@ declare namespace HivePlugin {
                 newAggregatedExecutable: (executables: Scripting.Executables.Executable[]) => Scripting.Executables.Executable;
 
                 Database: {
-                    newFindOneQuery: (collectionName: string, query?: JSONObject, options?: HivePlugin.Database.FindOptions) => Scripting.Executables.Database.FindOneQuery;
-                    newFindManyQuery: (collectionName: string, query?: JSONObject, options?: HivePlugin.Database.FindOptions) => Scripting.Executables.Database.FindManyQuery;
-                    newInsertQuery: (collectionName: string, query?: JSONObject, options?: HivePlugin.Database.InsertOptions) => Scripting.Executables.Database.InsertQuery;
-                    newUpdateQuery: (collectionName: string, filter: JSONObject, updateQuery: JSONObject, options?: HivePlugin.Database.UpdateOptions) => Scripting.Executables.Database.UpdateQuery;
-                    newDeleteQuery: (collectionName: string, query?: JSONObject, options?: HivePlugin.Database.DeleteOptions) => Scripting.Executables.Database.DeleteQuery;
+                    newFindOneQuery: (collectionName: string, query?: JSONObject, options?: HivePlugin.Database.FindOptions, output?: boolean) => Scripting.Executables.Database.FindOneQuery;
+                    newFindManyQuery: (collectionName: string, query?: JSONObject, options?: HivePlugin.Database.FindOptions, output?: boolean) => Scripting.Executables.Database.FindManyQuery;
+                    newInsertQuery: (collectionName: string, query?: JSONObject, options?: HivePlugin.Database.InsertOptions, output?: boolean) => Scripting.Executables.Database.InsertQuery;
+                    newUpdateQuery: (collectionName: string, filter: JSONObject, updateQuery: JSONObject, options?: HivePlugin.Database.UpdateOptions, output?: boolean) => Scripting.Executables.Database.UpdateQuery;
+                    newDeleteQuery: (collectionName: string, query?: JSONObject, options?: HivePlugin.Database.DeleteOptions, output?: boolean) => Scripting.Executables.Database.DeleteQuery;
                 }
             }
         }
