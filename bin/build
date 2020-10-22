@@ -110,6 +110,9 @@ def build_app(app_path, platform, needBuild, output="www"):
     if needBuild:
         run_cmd("npm install")
         run_cmd("ionic build --prod")
+        if args.release and os.path.isfile(app_path +'/.sentry.sh'):
+            # upload sourcemaps to sentry for better debugging
+            run_cmd("./.sentry.sh")
 
     app_id = get_appid(app_path +'/src/assets/manifest.json')
     copy_tree(output, BUILT_IN_DIR_PATH + app_id)
