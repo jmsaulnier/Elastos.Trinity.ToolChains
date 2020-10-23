@@ -93,6 +93,9 @@ cat $runtimepluginsroot/cordova-plugin-statusbar/types/index.d.ts > $outdir/cord
 # cordova-plugin-vibration
 echo "Copying Vibration types..."
 cat $runtimepluginsroot/cordova-plugin-vibration/types/index.d.ts > $outdir/cordova-plugin-vibration.d.ts
+# cordova-plugin-vibration
+echo "Copying Video Editor types..."
+cat $runtimepluginsroot/cordova-plugin-video-editor/typings/VideoEditor.d.ts > $outdir/cordova-plugin-video-editor.d.ts
 # elastos-trinity-plugins-media
 echo "Copying Media types..."
 cat $runtimepluginsroot/elastos-trinity-plugins-media/types/index.d.ts > $outdir/elastos-trinity-plugins-media.d.ts
