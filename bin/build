@@ -46,6 +46,7 @@ parser.add_argument('-bv', '--buildvariant', dest='buildvariant', required=False
 parser.add_argument('--release', action='store_true', help='build release')
 parser.add_argument('--buildarg', dest='buildarg', required=False,
                     help='Specify the build arg.')
+parser.add_argument('--uploadsourcemap', action='store_true', help='upload source map to sentry')
 args = parser.parse_args()
 if args.release:
     build_type='--release'
@@ -110,7 +111,7 @@ def build_app(app_path, platform, needBuild, output="www"):
     if needBuild:
         run_cmd("npm install")
         run_cmd("ionic build --prod")
-        if args.release and os.path.isfile(app_path +'/.sentry.sh'):
+        if args.uploadsourcemap and os.path.isfile(app_path +'/.sentry.sh'):
             # upload sourcemaps to sentry for better debugging
             run_cmd("./.sentry.sh")
 
