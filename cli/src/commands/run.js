@@ -29,12 +29,16 @@ exports.builder = {
     describe: "Build the app for production in order to fully test its behaviour before publishing it.",
     require: false,
     nargs: 0
+  },
+  localmdns: {
+      describe: "Forces the iOS bonjour service (dAPP installation) to run only on localhost to solve iOS mDNS resolving issues in some cases"
   }
 }
 exports.handler = function (argv) {
     var platform = argv.platform
     var noDebug = argv.nodebug
     var forProd = argv.prod || false
+    var localMDNS = argv.localmdns || false
 
     if (forProd)
         console.log("Building for production")
@@ -46,7 +50,7 @@ exports.handler = function (argv) {
         case "ios":
         case "desktop":
             // Desktop currently uses the same process as iOS, with a generic bonjour service
-            deployiOSDApp(noDebug, forProd)
+            deployiOSDApp(noDebug, forProd, localMDNS)
             break;
         default:
             console.log("ERROR - Not a valid platform")
@@ -169,7 +173,7 @@ async function deployAndroidDApp(noDebug, forProd) {
  * - run a bonjour + http service and wait for native app to download the EPK
  * - ionic serve (for hot reload inside trinity, when user saves his files)
  */
-async function deployiOSDApp(noDebug, forProd) {
+async function deployiOSDApp(noDebug, forProd, localMDNS) {
     var runHelper = new RunHelper()
     var ionicHelper = new IonicHelper()
 
@@ -185,7 +189,7 @@ async function deployiOSDApp(noDebug, forProd) {
 
     //let outputEPKPath = "/var/folders/d2/nw213ddn1c7g6_zcp5940ckw0000gn/T/temp.epk"
     runSharedDeploymentPhase(noDebug, forProd).then((sharedInfo)=>{
-        runHelper.runDownloadService(sharedInfo.outputEPKPath, sharedInfo.ipAddress).then(()=>{
+        runHelper.runDownloadService(sharedInfo.outputEPKPath, sharedInfo.ipAddress, localMDNS).then(()=>{
             console.log("RUN OPERATION COMPLETED".green)
 
             if (!noDebug) {

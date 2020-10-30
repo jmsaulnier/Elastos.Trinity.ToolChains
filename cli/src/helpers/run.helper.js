@@ -197,7 +197,7 @@ module.exports = class RunHelper {
         })
     }
 
-    runDownloadService(epkPath, ipAddress) {
+    runDownloadService(epkPath, ipAddress, localMDNS) {
         return new Promise((resolve, reject)=>{
             var server;
             let port = 3000
@@ -229,15 +229,32 @@ module.exports = class RunHelper {
             server = app.listen(port)
 
             // Advertise a trinitycli HTTP server
-            console.log("Publishing Bonjour service 'trinitycli', host: "+ipAddress+", port: "+port);
-            bonjour.publish({
+            let serviceOptions = {
                 name: 'trinitycli',
                 type: 'trinitycli',
-                host: ipAddress,
                 port: port
-            })
+            };
 
-            console.log("Waiting for elastOS to download the dApp.".blue)
+            // "Local service" not set, so we let the service run on a network IP address, not on
+            // localhost (default if setting no "host")
+            if (!localMDNS) {
+                serviceOptions.host = ipAddress;
+                console.log("Publishing Bonjour service 'trinitycli', host: "+ipAddress+", port: "+serviceOptions.port);
+            }
+            else {
+                console.log("Publishing Bonjour service 'trinitycli', host: localhost, port: "+serviceOptions.port);
+            }
+
+            bonjour.publish(serviceOptions)
+
+            console.log("Waiting for elastOS to download the dApp.".blue);
+            console.log("");
+            console.log("NOTE:".gray);
+            console.log("If for any reason after enabling developer mode in elastOS, having");
+            console.log("your device on the same wifi and turning VPN off, the dApp still can't be found");
+            console.log("by elastOS after more than 5 seconds, please use a simulator instead of a real iOS device,");
+            console.log("and run this command again with the --localmdns option.");
+            console.log("");
         })
     }
 }
