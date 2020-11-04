@@ -142,7 +142,7 @@ def build_app(app_path, platform, needBuild, output="www"):
     os.chdir(app_path)
 
     if needBuild:
-        run_cmd("npm install")
+        run_cmd("npm install --prefer-offline --no-audit")
         run_cmd("ionic build --prod")
 
     app_id = get_appid(app_path +'/src/assets/manifest.json')
@@ -557,7 +557,7 @@ ELECTRON_TITLEBAR_DIR_PATH=os.path.join(getRuntimeCopyDirPath(), "platform_src/e
 CONFIG_MIRROR_ANDROID=os.path.join(ANDROID_PLATFORM_DIR_PATH, "app/src/main/assets/www/config/config.json")
 CONFIG_MIRROR_IOS=os.path.join(getRuntimeCopyDirPath(), "platforms/ios/www/config/config.json")
 
-ela_plugin.setup_paths(getRuntimeCopyDirPath(), PLUGIN_DIR_PATH)
+ela_plugin.setup_paths(getRuntimeCopyDirPath(), getPluginsCopyDirPath())
 
 # TODO: Check system requirements - xcode, android studio, git, cocoapod, etc
 
@@ -607,7 +607,7 @@ updateConfig()
 ela_plugin.plugin_prepare(True)
 
 print("Installing NPM dependencies for the trinity Runtime.")
-run_cmd("npm install")
+run_cmd("npm install --prefer-offline --no-audit")
 
 run_cmd("cordova prepare")
 
