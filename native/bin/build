@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+while getopts ":p:h" opt; do
+  case $opt in
+    h)
+      echo "Usage:"
+      echo "    run.sh -h                  Display this help message."
+      echo "    run.sh -p                  Absolute path of the capsule"
+      exit 0
+    ;;
+    p) ABSOLUTE_PATH="$OPTARG"
+    ;;
+    \? )
+      echo "Invalid Option: -$OPTARG" 1>&2
+      exit 1
+    ;;
+  esac
+done
+
+if [ -z "${ABSOLUTE_PATH}" ]
+then
+  echo "You must pass in the path of your capsule with '-p' flag"
+  exit 1
+else
+  APP=$(basename ${ABSOLUTE_PATH})
+fi
+
+CONTAINER_NAME="elastos-toolchain"
+
+docker build --build-arg "CACHE_BUST=$(date +%s)" -t elastos/toolchain .
+
+# Remove previous containers
+docker container stop ${CONTAINER_NAME} || true && docker container rm -f ${CONTAINER_NAME} || true
+
+# Run the build using docker
+docker run -it --name ${CONTAINER_NAME} -v ${ABSOLUTE_PATH}:/home/elauser/${APP} elastos/toolchain /bin/bash -c "yes no | ./ToolChains/bin/native/build --config ../${APP}/native/trinitynativeconfig.json"
+
+retVal=$?
+if [ $retVal -eq 0 ]; then
+  echo "Your app package has been generated at ${ABSOLUTE_PATH}/native-out/app-debug.apk"
+else
+  echo "Error: Your app package could not be generated. Please try again"
+fi
+
+# Remove the running containers
+docker container stop ${CONTAINER_NAME} || true && docker container rm -f ${CONTAINER_NAME} || true
