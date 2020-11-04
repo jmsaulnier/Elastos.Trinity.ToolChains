@@ -109,6 +109,7 @@ else:
 def run_cmd(cmd, ignore_error=False):
     print("Running: " + cmd)
     ret = subprocess.call(cmd, shell=True)
+    print("Command ret: " + str(ret))
     if not ignore_error and ret != 0:
         sys.exit(ret)
 
