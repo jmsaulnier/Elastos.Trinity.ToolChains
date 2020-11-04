@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 
-while getopts ":p:h" opt; do
+while getopts ":p:b:h" opt; do
   case $opt in
     h)
       echo "Usage:"
       echo "    run.sh -h                  Display this help message."
       echo "    run.sh -p                  Absolute path of the capsule"
+      echo "    run.sh -b [yes|no]         Whether or not to first rebuild docker image locally[default: no]"
       exit 0
     ;;
     p) ABSOLUTE_PATH="$OPTARG"
+    ;;
+    b) DOCKER_BUILD="$OPTARG"
     ;;
     \? )
       echo "Invalid Option: -$OPTARG" 1>&2
@@ -27,7 +30,10 @@ fi
 
 CONTAINER_NAME="elastos-toolchain"
 
-docker build -f ../tools/Dockerfile --build-arg "CACHE_BUST=$(date +%s)" -t elastos/toolchain .
+if [ "${DOCKER_BUILD}" == "yes" ]
+then
+  docker build -f ../tools/Dockerfile --build-arg "CACHE_BUST=$(date +%s)" -t elastos/toolchain .
+fi
 
 # Remove previous containers
 docker container stop ${CONTAINER_NAME} || true && docker container rm -f ${CONTAINER_NAME} || true
