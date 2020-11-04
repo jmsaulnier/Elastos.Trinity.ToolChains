@@ -33,7 +33,7 @@ docker build -f ../tools/Dockerfile --build-arg "CACHE_BUST=$(date +%s)" -t elas
 docker container stop ${CONTAINER_NAME} || true && docker container rm -f ${CONTAINER_NAME} || true
 
 # Run the build using docker
-docker run -it --name ${CONTAINER_NAME} -v ${ABSOLUTE_PATH}:/home/elauser/${APP} elastos/toolchain /bin/bash -c "yes no | ./ToolChains/bin/native/build --config ../${APP}/native/trinitynativeconfig.json"
+docker run -it --name ${CONTAINER_NAME} -v ${ABSOLUTE_PATH}:/home/elauser/${APP} elastos/toolchain /bin/bash -c "yes no | ./ToolChains/native/bin/build_from_source --app ../${APP}/"
 
 retVal=$?
 if [ $retVal -eq 0 ]; then

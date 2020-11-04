@@ -27,7 +27,7 @@ RUN python3 -m pip install --upgrade pip &&                 \
 # Install android tools
 RUN mkdir -p /usr/lib/android-sdk/cmdline-tools &&                                              \
     wget https://dl.google.com/android/repository/commandlinetools-linux-6609375_latest.zip &&  \
-    unzip commandlinetools-linux-6609375_latest.zip -d /usr/lib/android-sdk/cmdline-tools &&    \ 
+    unzip commandlinetools-linux-6609375_latest.zip -d /usr/lib/android-sdk/cmdline-tools &&    \
     chmod 775 /usr/lib/android-sdk/ -R &&                                                       \
     yes | /usr/lib/android-sdk/cmdline-tools/tools/bin/sdkmanager                               \
             "build-tools;29.0.3" "platform-tools" "platforms;android-29" "ndk;21.3.6528147" &&  \
@@ -54,7 +54,7 @@ ENV JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
 ENV GRADLE_HOME="/opt/gradle/gradle-5.4.1"
 ENV ANDROID_SDK_ROOT="/usr/lib/android-sdk/"
 ENV PATH="${PATH}:${GRADLE_HOME}/bin:${ANDROID_SDK_ROOT}/cmdline-tools/tools/bin:${ANDROID_SDK_ROOT}/tools:${ANDROID_SDK_ROOT}/platform-tools:/home/elauser/.local/bin:/home/elauser/.npm-global/bin"
-    
+
 ARG REPO_URL=https://github.com/elastos/Elastos.Trinity.git
 
 # Clone repo
@@ -75,4 +75,4 @@ RUN cd ${SRC_DIR}/Dapps && git checkout master && git pull &&       \
 RUN pip install -r ${SRC_DIR}/ToolChains/native/tools/requirements.txt
 
 # TODO: Need to find a good solution for this rather than just hard-coding the removal of the lines
-RUN sed -i '/The app manifest must contain the application DID string to be able to secure intents/,+4 d' ${SRC_DIR}/ToolChains/bin/native/build 
+RUN sed -i '/The app manifest must contain the application DID string to be able to secure intents/,+4 d' ${SRC_DIR}/ToolChains/native/bin/build_from_source
