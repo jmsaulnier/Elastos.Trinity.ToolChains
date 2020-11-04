@@ -27,7 +27,7 @@ fi
 
 CONTAINER_NAME="elastos-toolchain"
 
-docker build --build-arg "CACHE_BUST=$(date +%s)" -t elastos/toolchain .
+docker build -f ../tools/Dockerfile --build-arg "CACHE_BUST=$(date +%s)" -t elastos/toolchain .
 
 # Remove previous containers
 docker container stop ${CONTAINER_NAME} || true && docker container rm -f ${CONTAINER_NAME} || true

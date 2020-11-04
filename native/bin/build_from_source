@@ -82,8 +82,8 @@ class bcolors:
 
 parser = argparse.ArgumentParser(description='Builds the Elastos.Trinity project together with a target dApp in order to generate a native application based on the Trinity runtime.',
                                  formatter_class=argparse.RawTextHelpFormatter)
-parser.add_argument('-c', '--config', dest='native_config_path', metavar='PATH', required=True,
-                    help='Trinity native configuration file to customize trinity for the target dApp.')
+parser.add_argument('-a', '--app', dest='dapp_path', metavar='PATH', required=True,
+                    help='Root location of your dApp', type=os.path.abspath)
 parser.add_argument('-bv', '--buildvariant', dest='buildvariant', required=False,
                     help='Specify the build variant.')
 
@@ -276,9 +276,7 @@ def loadAppManifest():
     return data
 
 def getAppRoot():
-    relativeAppSrcPath = ensureTrinityConfigFieldPresence(TRINITY_NATIVE_CONFIG["build"], "root", "build/root")
-    appPath = os.path.realpath(os.path.join(TRINITY_CONFIG_DIR_PATH, relativeAppSrcPath))
-    return appPath
+    return args.dapp_path
 
 def getAppManifestPath():
     appPath = getAppRoot()
@@ -523,8 +521,12 @@ IONIC_DAPPS_DIR_PATH=os.path.join(TRINITY_PROJECT_DIR_PATH, "Dapps/Ionic")
 startTime = timeit.default_timer()
 
 # Compute dapp paths
-TRINITY_CONFIG_PATH = os.path.realpath(os.path.join(os.getcwd(), args.native_config_path))
-TRINITY_CONFIG_DIR_PATH = os.path.dirname(TRINITY_CONFIG_PATH)
+TRINITY_CONFIG_DIR_PATH = getAppRoot()
+TRINITY_CONFIG_PATH = os.path.realpath(os.path.join(getAppRoot(), "trinitynative.json"))
+
+if not os.path.exists(TRINITY_CONFIG_PATH):
+    print('Error: No trinity native configuration file found at: '+TRINITY_CONFIG_PATH)
+    sys.exit(1)
 
 # Get user's configuration file. This is our link between trinity world and user's dapp world
 TRINITY_NATIVE_CONFIG = loadTrinityNativeConfig()
