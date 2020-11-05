@@ -447,6 +447,18 @@ def iosPatchAppNameInSourceCodeAfterCordovaPrepare():
     findReplace(IOS_PLATFORM_DIR_PATH, "elastOS-Swift.h", newImport, "*.m")
     findReplace(IOS_PLATFORM_SRC_DIR_PATH, "elastOS-Swift.h", newImport, "*.m")
 
+# Updates the entitlement files to use user defined schemes instead of scheme.elastos.org.
+# This is necessary to let this native app receive intent responses from elastOS.
+def iosPatchAppLinks():
+    appName = getAppName()
+    entitlementDebugFilePath = os.path.join(IOS_PLATFORM_DIR_PATH, appName, "Entitlements-Debug.plist")
+    entitlementReleaseFilePath = os.path.join(IOS_PLATFORM_DIR_PATH, appName, "Entitlements-Release.plist")
+
+    print("iOS: replacing scheme.elastos.org applink with custom app link in entitlement files")
+    intentScheme = getIntentScheme()
+    findReplaceInFile(entitlementDebugFilePath, "scheme.elastos.org", intentScheme["path"])
+    findReplaceInFile(entitlementReleaseFilePath, "scheme.elastos.org", intentScheme["path"])
+
 # Because the app name and package id change, we also need to modify our patch system a bit
 def patchCordovaPreparePatches():
     appName = getAppName()
@@ -617,6 +629,7 @@ run_cmd("cordova prepare")
 # Run some post cordova prepare operations
 androidPatchPackageIdInSourceCodeAfterCordovaPrepare()
 iosPatchAppNameInSourceCodeAfterCordovaPrepare()
+iosPatchAppLinks()
 
 """ TMP REMOVED ELECTRON - RESTORE THIS BLOCK
 # Electron specific preparation step
@@ -634,7 +647,7 @@ os.chdir(getRuntimeCopyDirPath())
 
 # Build the platforms
 print("Building platforms")
-run_cmd("cordova build android " + build_type + " " + build_arg)
+run_cmd("cordova build --verbose android " + build_type + " " + build_arg)
 # TMP run_cmd("cordova build electron " + build_type + " " + build_arg)
 # TMP run_cmd("cordova build ios " + build_type + " " + build_arg)
 
