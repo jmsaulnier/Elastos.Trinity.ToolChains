@@ -24,35 +24,37 @@ RUN python3 -m pip install --upgrade pip &&                 \
         typescript@4.0.5                                    \
         @elastosfoundation/trinity-cli@1.1.34
 
-# Install android tools
-RUN mkdir -p /usr/lib/android-sdk/cmdline-tools &&                                              \
-    wget https://dl.google.com/android/repository/commandlinetools-linux-6609375_latest.zip &&  \
-    unzip commandlinetools-linux-6609375_latest.zip -d /usr/lib/android-sdk/cmdline-tools &&    \
-    chmod 775 /usr/lib/android-sdk/ -R &&                                                       \
-    yes | /usr/lib/android-sdk/cmdline-tools/tools/bin/sdkmanager                               \
-            "build-tools;29.0.3" "platform-tools" "platforms;android-29" "ndk;21.3.6528147" &&  \
-    yes | /usr/lib/android-sdk/cmdline-tools/tools/bin/sdkmanager --licenses &&                 \
-    wget https://services.gradle.org/distributions/gradle-5.4.1-bin.zip -P /tmp &&              \
-    unzip -d /opt/gradle /tmp/gradle-*.zip
-
 # Setup a new user
 RUN groupadd --gid 1000 elauser &&                                          \
     useradd --home-dir /home/elauser --create-home                          \
-        --uid 1000 --gid 1000 --shell /bin/sh --skel /dev/null elauser &&   \
-    chown -R elauser:elauser /usr/lib/android-sdk
+        --uid 1000 --gid 1000 --shell /bin/sh --skel /dev/null elauser
 
 # Run everything from here on out with the newly created user
 USER elauser
 
-# Setup npm path and setup virtual environment
-RUN mkdir ~/.npm-global &&                  \
-    npm config set prefix '~/.npm-global'
+# Install android tools
+RUN mkdir -p ${HOME}/android/android-sdk/cmdline-tools &&                                               \
+    wget https://dl.google.com/android/repository/commandlinetools-linux-6609375_latest.zip -P /tmp &&  \
+    unzip -d ${HOME}/android/android-sdk/cmdline-tools /tmp/commandlinetools-linux-*.zip &&             \
+    chmod 775 ${HOME}/android/android-sdk/ -R &&                                                        \
+    yes | ${HOME}/android/android-sdk/cmdline-tools/tools/bin/sdkmanager                                \
+            "build-tools;28.0.3" "platform-tools" "platforms;android-28" "ndk;21.3.6528147" &&          \
+    yes | ${HOME}/android/android-sdk/cmdline-tools/tools/bin/sdkmanager --licenses &&                  \
+    wget https://services.gradle.org/distributions/gradle-5.4.1-bin.zip -P /tmp &&                      \
+    unzip -d ${HOME}/android /tmp/gradle-*.zip &&                                                       \        
+    mv ${HOME}/android/gradle-5.4.1 ${HOME}/android/gradle                
+
+# Setup npm path and gradle properties
+RUN mkdir ~/.npm-global ~/.gradle &&            \
+    npm config set prefix '~/.npm-global' &&    \
+    echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxHeapSize=4096m -XX:MaxPermSize=4096m -XX:+HeapDumpOnOutOfMemoryError" >> ~/.gradle/gradle.properties && \
+    echo "org.gradle.daemon=true\norg.gradle.parallel=true\norg.gradle.configureondemand=true" >> ~/.gradle/gradle.properties
 
 # Setup environment variables
-ENV SRC_DIR="/home/elauser/Elastos.Trinity"
-ENV JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
-ENV GRADLE_HOME="/opt/gradle/gradle-5.4.1"
-ENV ANDROID_SDK_ROOT="/usr/lib/android-sdk/"
+ENV SRC_DIR=/home/elauser/Elastos.Trinity
+ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+ENV GRADLE_HOME=/home/elauser/android/gradle
+ENV ANDROID_SDK_ROOT=/home/elauser/android/android-sdk/
 ENV PATH="${PATH}:${GRADLE_HOME}/bin:${ANDROID_SDK_ROOT}/cmdline-tools/tools/bin:${ANDROID_SDK_ROOT}/tools:${ANDROID_SDK_ROOT}/platform-tools:/home/elauser/.local/bin:/home/elauser/.npm-global/bin"
 
 ARG REPO_URL=https://github.com/elastos/Elastos.Trinity.git

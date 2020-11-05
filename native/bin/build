@@ -30,6 +30,9 @@ fi
 
 CONTAINER_NAME="elastos-toolchain"
 
+# Make sure to remove the running containers no matter what
+trap "{ docker container stop ${CONTAINER_NAME} || true && docker container rm -f ${CONTAINER_NAME} || true; }" EXIT
+
 if [ "${DOCKER_BUILD}" == "yes" ]
 then
   docker build -f ../tools/Dockerfile --build-arg "CACHE_BUST=$(date +%s)" -t elastos/toolchain .
@@ -38,8 +41,12 @@ fi
 # Remove previous containers
 docker container stop ${CONTAINER_NAME} || true && docker container rm -f ${CONTAINER_NAME} || true
 
-# Run the build using docker
-docker run -it --name ${CONTAINER_NAME} -v ${ABSOLUTE_PATH}:/home/elauser/${APP} elastos/toolchain /bin/bash -c "yes no | ./ToolChains/native/bin/build_from_source --app ../${APP}/"
+# Start the docker container in the background
+docker run -it --name ${CONTAINER_NAME} --user 1000 -d --memory="4g" -v ${ABSOLUTE_PATH}:/home/elauser/${APP} elastos/toolchain /bin/bash
+
+# Run the build script 
+docker container exec --user 1000 -it ${CONTAINER_NAME} \
+  /bin/bash -c "yes no | ./ToolChains/native/bin/build_from_source --app ../${APP}/"
 
 retVal=$?
 if [ $retVal -eq 0 ]; then
@@ -47,6 +54,3 @@ if [ $retVal -eq 0 ]; then
 else
   echo "Error: Your app package could not be generated. Please try again"
 fi
-
-# Remove the running containers
-docker container stop ${CONTAINER_NAME} || true && docker container rm -f ${CONTAINER_NAME} || true
