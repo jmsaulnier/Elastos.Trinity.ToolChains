@@ -319,6 +319,7 @@ if args.target == "all" or args.target == "launcher":
     run_cmd("ionic build --prod")
     copy_tree("www", RUNTIME_DIR_PATH + "/www/launcher/")
 
+if args.target == "launcher":
     # build DIDSession
     dapp_dir = os.path.join(PROJECT_DIR_PATH, "Dapps/Ionic/DIDSession")
     build_app(dapp_dir, build_platform, True, "www")
