@@ -503,9 +503,10 @@ def patchCordovaPreparePatches():
     intentScheme = getIntentScheme()
     newSchemeDataEntry = "<data android:host=\""+intentScheme["path"]+"\" android:scheme=\""+intentScheme["scheme"]+"\" />"
     findReplaceInFile(manifestPath, "<data android:host=\"scheme.elastos.org\" android:scheme=\"https\" />", newSchemeDataEntry, True)
-    # Replace elastOS intent filters with fake/unreachable paths (easier than removing them)
-    findReplaceInFile(manifestPath, "did.trinity-tech.io", "xxxxxxxx", True)
-    findReplaceInFile(manifestPath, "wallet.trinity-tech.io", "xxxxxxxx", True)
+    # Replace elastOS intent filters with fake/unreachable paths (dirty but easier than removing them)
+    findReplaceInFile(manifestPath, "did.elastos.net", "xxxxxxxx", True)
+    findReplaceInFile(manifestPath, "wallet.elastos.net", "xxxxxxxx", True)
+    findReplaceInFile(manifestPath, "hive.elastos.net", "xxxxxxxx", True)
 
     # Version code and name - android gradle - patch the patch...
     buildGradlePath = os.path.realpath(os.path.join(getRuntimeCopyDirPath(), "scripts/patches/after_platform_add_android/build_gradle.patch"))
