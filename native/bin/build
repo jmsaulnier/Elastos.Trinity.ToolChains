@@ -1,17 +1,15 @@
 #!/usr/bin/env bash
+set -e
 
-while getopts ":p:b:h" opt; do
+while getopts ":p:h" opt; do
   case $opt in
     h)
       echo "Usage:"
       echo "    run.sh -h                  Display this help message."
       echo "    run.sh -p                  Absolute path of the capsule"
-      echo "    run.sh -b [yes|no]         Whether or not to first rebuild docker image locally[default: no]"
       exit 0
     ;;
     p) ABSOLUTE_PATH="$OPTARG"
-    ;;
-    b) DOCKER_BUILD="$OPTARG"
     ;;
     \? )
       echo "Invalid Option: -$OPTARG" 1>&2
@@ -28,25 +26,278 @@ else
   APP=$(basename ${ABSOLUTE_PATH})
 fi
 
-CONTAINER_NAME="elastos-toolchain"
+CURRENT_DIR=$(pwd)
+WORK_DIR=`mktemp -d`
+trap "rm -rf ${WORK_DIR} && cd ${CURRENT_DIR}" EXIT
 
-# Make sure to remove the running containers no matter what
-trap "{ docker container stop ${CONTAINER_NAME} || true && docker container rm -f ${CONTAINER_NAME} || true; }" EXIT
+function setup_python3 () {
+  echo "Checking whether Python3 is installed..."
+  if [[ "$(python3 -V)" =~ "Python 3" ]]
+  then
+    echo "Found Python3"
+  else
+    echo "Python3 is not installed on this system. Installing python3..."
+    case `uname` in
+      Linux )
+        sudo apt-get install python3.8 python3-pip -y
+      ;;
+      Darwin )
+        brew install sashkab/python/python@3.8
+        ln -s /usr/local/opt/python@3.8/bin/python3.8 /usr/local/bin/python3.8
+      ;;
+    esac
+  fi
 
-if [ "${DOCKER_BUILD}" == "yes" ]
-then
-  docker build -f ../tools/Dockerfile --build-arg "CACHE_BUST=$(date +%s)" -t elastos/toolchain .
-fi
+  echo "Using $(python3 -V) for build"
+  export PATH="${PATH}:${HOME}/.local/bin"
+}
 
-# Remove previous containers
-docker container stop ${CONTAINER_NAME} || true && docker container rm -f ${CONTAINER_NAME} || true
+function setup_openjdk8 () {
+  echo "Checking whether OpenJDK8 is installed..."
+  found_jdk8="yes"
+  if [[ $(type -p java) ]]
+  then
+    echo "Found OpenJDK8 on PATH"
+    _java=java
+  elif [[ -n "$JAVA_HOME" ]] && [[ -x "$JAVA_HOME/bin/java" ]]
+  then
+    echo "Found OpenJDK8 on JAVA_HOME"
+    _java="$JAVA_HOME/bin/java"
+  else
+    found_jdk8="no"
+    echo "OpenJDK8 is not installed on this system. Installing OpenJDK8..."
+  fi
 
-# Start the docker container in the background
-docker run -it --name ${CONTAINER_NAME} --user 1000 -d --memory="4g" -v ${ABSOLUTE_PATH}:/home/elauser/${APP} elastos/toolchain /bin/bash
+  if [[ "$_java" ]]
+  then
+    version=$("$_java" -version 2>&1 | awk -F '"' '/version/ {print $2}')
+    if [[ "$version" > "1.8" ]]
+    then
+      echo "Using Java ${version} for build"
+    else       
+      found_jdk8 ="no"
+      echo "Found incompatible OpenJDK version: ${version}. Installing OpenJDK8"
+    fi
+  fi
 
-# Run the build script 
-docker container exec --user 1000 -it ${CONTAINER_NAME} \
-  /bin/bash -c "yes no | ./ToolChains/native/bin/build_from_source --app ../${APP}/"
+  if [[ $(echo ${found_jdk8}) == "no" ]]
+  then
+    case `uname` in
+      Linux )
+        sudo apt-get install openjdk-8-jdk -y
+      ;;
+      Darwin )
+        brew tap AdoptOpenJDK/openjdk
+        brew cask install adoptopenjdk8
+      ;;
+    esac
+    echo "Setting up JAVA_HOME and adding it to PATH"
+    echo "export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64"
+    export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+    printf "\n# JAVA_HOME PATH added by Elastos.Trinity Toolchain Build Process\nexport JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64\n" >> ${HOME}/.bash_profile
+    source ${HOME}/.bash_profile
+    echo "Using Java $(java -version) for build"
+  fi
+}
+
+function setup_nodejs () {
+  echo "Checking whether NodeJS is installed..."
+  found_nodejs="yes"
+  if [[ $(type -p node) ]]
+  then
+    echo "Found NodeJS"
+    _node=node
+  else
+    found_nodejs="no"
+    echo "NodeJS is not installed on this system. Installing NodeJS..."
+  fi
+
+  if [[ "$_node" ]]
+  then
+    version=$("$_node" -v 2>&1 | awk -F 'v' '/v/ {print $2}')
+    if [[ "$version" > "12" ]]
+    then
+      echo "Using NodeJS ${version} and Npm $(npm -v) for build"
+    else       
+      found_jdk8 ="no"
+      echo "Found incompatible NodeJS version: ${version}. Installing NodeJS 12.x"
+    fi
+  fi
+
+  if [[ $(echo ${found_nodejs}) == "no" ]]
+  then
+    curl https://deb.nodesource.com/setup_12.x | bash
+    echo "Using NodeJS ${version} and Npm $(npm -v) for build"
+  fi
+
+  echo "Setting up Npm path at ${HOME}/.npm-global and adding it to PATH temporarily"
+  mkdir -p ${HOME}/.npm-global
+  npm config set prefix '${HOME}/.npm-global'
+  export PATH="${PATH}:${HOME}/.npm-global/bin"
+}
+
+function setup_android_sdkmanager () {
+  echo "Checking whether Android Sdkmanager is installed..."
+  found_sdkmanager="yes"
+  if [[ $(type -p sdkmanager) ]]
+  then
+    echo "Found Android Sdkmanager"
+    _sdkmanager=sdkmanager
+  else
+    found_sdkmanager="no"
+    echo "Android Sdkmanager is not installed on this system. Installing Android Sdkmanager at ${HOME}/android/android-sdk..."   
+  fi
+
+  if [[ "$_sdkmanager" ]]
+  then
+    version=$("$_sdkmanager" --version 2>&1)
+    if [[ "$version" > "4" ]]
+    then
+      echo "Using Android Sdkmanager ${version} for build"
+      export ANDROID_SDK_ROOT=$(echo $(readlink -f $(which sdkmanager)) | sed 's#/cmdline-tools/tools/bin/sdkmanager##g')
+    else       
+      found_sdkmanager ="no"
+      echo "Found incompatible Android Sdkmanager version: ${version}. Installing Android Sdkmanager"
+    fi
+  fi
+
+  if [[ $(echo ${found_sdkmanager}) == "no" ]]
+  then
+    mkdir -p ${HOME}/android/android-sdk/cmdline-tools
+    rm -rf ${HOME}/android/android-sdk/cmdline-tools/tools
+    case `uname` in
+      Linux )                                                     
+        wget https://dl.google.com/android/repository/commandlinetools-linux-6858069_latest.zip -P ${WORK_DIR} &&  \
+        unzip -d ${HOME}/android/android-sdk/cmdline-tools ${WORK_DIR}/commandlinetools-linux-*.zip
+      ;;
+      Darwin )
+        wget https://dl.google.com/android/repository/commandlinetools-mac-6858069_latest.zip -P ${WORK_DIR} &&  \
+        unzip -d ${HOME}/android/android-sdk/cmdline-tools ${WORK_DIR}/commandlinetools-linux-*.zip
+      ;;
+    esac
+    chmod 775 ${HOME}/android/android-sdk/ -R 
+    echo "Setting up ANDROID_SDK_ROOT and adding it to PATH"
+    echo "export ANDROID_SDK_ROOT=${HOME}/android/android-sdk"
+    export ANDROID_SDK_ROOT=${HOME}/android/android-sdk
+    printf "\n# ANDROID_SDK_ROOT PATH added by Elastos.Trinity Toolchain Build Process\nexport ANDROID_SDK_ROOT=${HOME}/android/android-sdk\n" >> ${HOME}/.bash_profile
+    export PATH="${PATH}:${ANDROID_SDK_ROOT}/cmdline-tools/tools/bin"
+    echo 'export PATH="${PATH}:${ANDROID_SDK_ROOT}/cmdline-tools/tools/bin"' >> ${HOME}/.bash_profile
+    source ${HOME}/.bash_profile
+    echo "Using Android Sdkmanager $(sdkmanager --version) for build"
+  fi  
+
+  # Install Android Build Tools, Platform Tools and NDK"
+  yes | sdkmanager                            \
+      "build-tools;28.0.3" "platform-tools" "platforms;android-28" "ndk;21.3.6528147" &&          \
+  yes | sdkmanager --licenses 
+  wait
+
+  echo "Setting Android Sdkmanager tools path temporarily"
+  export PATH="${PATH}:${ANDROID_SDK_ROOT}/tools:${ANDROID_SDK_ROOT}/platform-tools" 
+}
+
+function setup_android_gradle () {
+  echo "Checking whether Android Gradle is installed..."
+  found_gradle="yes"
+  if [[ $(type -p gradle) ]]
+  then
+    echo "Found Android Gradle"
+    _gradle=gradle
+  else
+    found_gradle="no"
+    echo "Android Gradle is not installed on this system. Installing Android Gradle at ${HOME}/android/gradle..."   
+  fi
+
+  if [[ "$_gradle" ]]
+  then
+    version=$("$_gradle" --version 2>&1 | awk -F 'Gradle ' '/Gradle/ {print $2}')
+    if [[ "$version" > "5" ]]
+    then
+      echo "Using Android Gradle ${version} for build"
+      export GRADLE_HOME=$(echo $(readlink -f $(which gradle)) | sed 's#/bin/gradle##g')
+    else       
+      found_gradle="no"
+      echo "Found incompatible Android Gradle version: ${version}. Installing Android Gradle"
+    fi
+  fi
+
+  if [[ $(echo ${found_gradle}) == "no" ]]
+  then
+    mkdir -p ${HOME}/android
+    rm -rf ${HOME}/android/gradle &&                      \
+    wget https://services.gradle.org/distributions/gradle-6.7-bin.zip -P ${WORK_DIR} &&  \
+    yes | unzip -d ${HOME}/android ${WORK_DIR}/gradle-6.7-bin.zip &&                     \
+    mv ${HOME}/android/gradle-6.7 ${HOME}/android/gradle &&                       \
+    echo "Setting up GRADLE_HOME and adding it to PATH" &&                        \
+    echo "export GRADLE_HOME=${HOME}/android/gradle" && \
+    export GRADLE_HOME=${HOME}/android/gradle  
+    printf "\n# GRADLE_HOME PATH added by Elastos.Trinity Toolchain Build Process\nexport GRADLE_HOME=${HOME}/android/gradle\n" >> ${HOME}/.bash_profile
+    export PATH="${PATH}:${GRADLE_HOME}/bin"
+    echo 'export PATH="${PATH}:${GRADLE_HOME}/bin"' >> ${HOME}/.bash_profile
+    source ${HOME}/.bash_profile 
+    echo "Using Android Gradle $(gradle --version) for build"                               
+  fi
+}
+
+function install_depencencies () {
+  echo "Setting up python virtual environment at ${HOME}/.venv"
+  pip3 install virtualenv
+  virtualenv -p `which python3` ${HOME}/.venv
+  source ${HOME}/.venv/bin/activate
+  pip install --upgrade pip
+
+  echo "Installing npm dependencies..."
+  npm install -g --unsafe-perm                            \
+    cordova@10.0.0                                        \
+    cordova-res@0.15.1                                    \
+      @ionic/cli@6.12.1                                   \
+      typescript@4.0.5                                    \
+      @elastosfoundation/trinity-cli@1.1.34
+
+  echo "Cloning Elastos.Trinity github repository..."
+  git clone --recurse-submodules -j8 https://github.com/elastos/Elastos.Trinity.git ${WORK_DIR}/Elastos.Trinity
+  cd ${WORK_DIR}/Elastos.Trinity/Dapps && git checkout master && git pull
+  cd ${WORK_DIR}/Elastos.Trinity/Launcher && git checkout master && git pull
+  cd ${WORK_DIR}/Elastos.Trinity/Plugins && git checkout master && git pull
+  cd ${WORK_DIR}/Elastos.Trinity/Runtime && git checkout master && git pull
+  cd ${WORK_DIR}/Elastos.Trinity/ToolChains && git checkout master && git pull
+
+  echo "Installing python dependencies..."
+  pip install -r ${WORK_DIR}/Elastos.Trinity/ToolChains/native/tools/requirements.txt
+}
+
+function setup_env () {
+  # This is to handle an edge-case if the script is re-run twice without manually sourcing 
+  # ~/.bash_profile after installing different dependencies
+  source ${HOME}/.bash_profile
+  # Update the package manager and install the essential build tools
+  case `uname` in
+    Linux )
+      sudo apt-get update -y 
+      sudo apt-get install build-essential -y
+    ;;
+    Darwin )
+      brew update
+    ;;
+    *)
+      echo "This script can only run on Linux or Darwin machines. Exiting..."
+      exit 1
+    ;;
+  esac
+  
+  setup_python3
+  setup_openjdk8
+  setup_nodejs
+  setup_android_sdkmanager
+  setup_android_gradle
+  install_depencencies
+
+  # TODO: Need to find a good solution for this rather than just hard-coding the removal of the lines
+  sed -i '/The app manifest must contain the application DID string to be able to secure intents/,+4 d' ${WORK_DIR}/Elastos.Trinity/ToolChains/native/bin/build_from_source
+}
+
+setup_env
+${WORK_DIR}/Elastos.Trinity/ToolChains/native/bin/build_from_source --app ${ABSOLUTE_PATH}
 
 retVal=$?
 if [ $retVal -eq 0 ]; then
