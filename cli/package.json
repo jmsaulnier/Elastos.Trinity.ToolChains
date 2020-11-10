@@ -1,6 +1,6 @@
 {
   "name": "@elastosfoundation/trinity-cli",
-  "version": "1.1.34",
+  "version": "1.1.35",
   "description": "Command line tool to manage Elastos Trinity DApps",
   "main": "./bin/trinity",
   "bin": "./bin/trinity",
@@ -10,7 +10,7 @@
     "rename": "mv bin/trinity.js bin/trinity",
     "copyassets": "mkdir -p bin/assets && cp -rf assets bin/",
     "getnativedid": "./scripts/getnativedid.sh",
-    "copytoolchain": "mkdir -p bin/toolchain && cp ../bin/* bin/toolchain && mkdir -p bin/lib && cp ../lib/* bin/lib",
+    "copytoolchain": "mkdir -p bin/toolchain && cp ../bin/* bin/toolchain && mkdir -p bin/lib && cp -r ../lib/* bin/lib",
     "prepublish": "npm run devprepare && npm run getnativedid",
     "devprepare": "npm run clean && npm run copytoolchain && npm run copyassets && npm run build && npm run rename"
   },

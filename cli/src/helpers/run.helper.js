@@ -7,16 +7,65 @@ const DAppHelper = require("./dapp.helper")
 
 module.exports = class RunHelper {
     /**
+     * Gets a readable format from "adb devices". Used to prompt user to choose a device in case more
+     * than one are connected.
+     */
+    androidGetADBDevicesList() {
+        return new Promise((resolve, reject)=>{
+            const spawn = require("child_process").spawn;
+            const adbProcess = spawn('adb',["devices"]);
+
+            let output = "";
+            let devices = [];
+
+            adbProcess.stdout.on('data', function (data) { output += data; });
+            adbProcess.stderr.on('data', function (data) { output += data; });
+            adbProcess.on('error', function(err) { reject(err)})
+
+            adbProcess.on('exit', function (code) {
+                if (code == 0) {
+                    // Operation completed successfully - parse output to generate the devices list
+                    let lines = output.split("\n");
+                    for (let line of lines) {
+                        if (line.endsWith("device")) {
+                            let words = line.split("\t");
+                            if (words.length > 0)
+                                devices.push(words[0]);
+                        }
+                    }
+
+                    resolve(devices);
+                }
+                else {
+                    console.log('ERROR - failed to get ADB devices list - error code: ' + code);
+                    reject()
+                }
+            });
+        });
+    }
+
+    /**
      * Uploads a given EPK file to a connected android device, to a temporary location.
      */
-    androidUploadEPK(EPKPath) {
+    androidUploadEPK(EPKPath, device) {
         return new Promise((resolve, reject) => {
             console.log("Trying to upload the EPK file to a connected android device...")
 
             var destinationPath = "/sdcard/temp.epk";
 
             const spawn = require("child_process").spawn;
-            const adbProcess = spawn('adb',["push", EPKPath, destinationPath]);
+
+            let adbOptions = [];
+            if (device) {
+                // Device must be specified to adb
+                adbOptions.push("-s");
+                adbOptions.push(device);
+            }
+            adbOptions.push("push");
+            adbOptions.push(EPKPath);
+            adbOptions.push(destinationPath);
+
+            const adbProcess = spawn('adb', adbOptions);
 
             adbProcess.stdout.on('data', function (data) { console.log(''+data)});
             adbProcess.stderr.on('data', function (data) { console.log(''+data)});
@@ -40,14 +89,32 @@ module.exports = class RunHelper {
      * Request the trinity application to open a EPK file that was previously pushed to the device.
      * That may install that EPK inside trinity.
      */
-    androidInstallTempEPK() {
+    androidInstallTempEPK(device) {
         return new Promise((resolve, reject) => {
             console.log("Requesting your trinity application to install your DApp...")
 
             // Sample command: adb shell am start -a android.intent.action.VIEW -d file:///storage/emulated/0/temp.epk -t *.epk
             const spawn = require("child_process").spawn;
-            // -c android.intent.category.TEST is used to automatically uninstall existing app from trinity
-            const adbProcess = spawn('adb',["shell","am","start","-a","android.intent.action.VIEW","-d","file:///storage/emulated/0/temp.epk","-t","*.epk","-c","android.intent.category.TEST"]);
+
+            let adbOptions = [];
+            if (device) {
+                // Device must be specified to adb
+                adbOptions.push("-s");
+                adbOptions.push(device);
+            }
+            adbOptions.push("shell");
+            adbOptions.push("am");
+            adbOptions.push("start");
+            adbOptions.push("-a");
+            adbOptions.push("android.intent.action.VIEW");
+            adbOptions.push("-d");
+            adbOptions.push("file:///storage/emulated/0/temp.epk");
+            adbOptions.push("-t");
+            adbOptions.push("*.epk");
+            adbOptions.push("-c");
+            adbOptions.push("android.intent.category.TEST");
+
+            const adbProcess = spawn('adb', adbOptions);
 
             adbProcess.stdout.on('data', function (data) { console.log(''+data)});
             adbProcess.stderr.on('data', function (data) { console.log(''+data)});

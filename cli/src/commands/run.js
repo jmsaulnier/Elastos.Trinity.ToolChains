@@ -31,7 +31,10 @@ exports.builder = {
     nargs: 0
   },
   localmdns: {
-      describe: "Forces the iOS bonjour service (dAPP installation) to run only on localhost to solve iOS mDNS resolving issues in some cases"
+    describe: "Forces the iOS bonjour service (dAPP installation) to run only on localhost to solve iOS mDNS resolving issues in some cases"
+  },
+  device: {
+    describe: "Identifier of the device to which the app should be deployed. Use this option in case several devices are connected on the computer (android)"
   }
 }
 exports.handler = function (argv) {
@@ -39,13 +42,14 @@ exports.handler = function (argv) {
     var noDebug = argv.nodebug
     var forProd = argv.prod || false
     var localMDNS = argv.localmdns || false
+    var device = argv.device
 
     if (forProd)
         console.log("Building for production")
 
     switch (platform) {
         case "android":
-            deployAndroidDApp(noDebug, forProd)
+            deployAndroidDApp(noDebug, forProd, device)
             break;
         case "ios":
         case "desktop":
@@ -119,7 +123,7 @@ async function runSharedDeploymentPhase(noDebug, forProd) {
  * - push and run the EPK on the device (adb push/shell am start, on android)
  * - ionic serve (for hot reload inside trinity, when user saves his files)
  */
-async function deployAndroidDApp(noDebug, forProd) {
+async function deployAndroidDApp(noDebug, forProd, device) {
     var runHelper = new RunHelper()
     var ionicHelper = new IonicHelper()
 
@@ -137,10 +141,26 @@ async function deployAndroidDApp(noDebug, forProd) {
         return
     }
 
+    let devices = await runHelper.androidGetADBDevicesList();
+    if (device) {
+        // The developer told us which device he wants to use. Let's check that this device actually exists.
+        if (devices.indexOf(device) < 0) {
+            console.error("Error:".red, "The specified device ID was not found. Available devices:", devices);
+            return;
+        }
+    }
+    else {
+        if (devices.length > 1) {
+            // More than one device: prompt user to tell us the device name
+            console.error("Error:".red, "Please specify which device you want to deploy your app to using the --device 'yourdevice' option. Available devices:", devices);
+            return;
+        }
+    }
+
     //let outputEPKPath = "/var/folders/d2/nw213ddn1c7g6_zcp5940ckw0000gn/T/temp.epk"
     runSharedDeploymentPhase(noDebug, forProd).then((sharedInfo)=>{
-        runHelper.androidUploadEPK(sharedInfo.outputEPKPath).then(()=>{
-            runHelper.androidInstallTempEPK().then(()=>{
+        runHelper.androidUploadEPK(sharedInfo.outputEPKPath, device).then(()=>{
+            runHelper.androidInstallTempEPK(device).then(()=>{
                 console.log("RUN OPERATION COMPLETED".green)
 
                 if (!noDebug) {
