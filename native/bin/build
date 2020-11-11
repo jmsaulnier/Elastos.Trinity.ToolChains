@@ -32,7 +32,7 @@ fi
 CURRENT_DIR=$(pwd)
 WORK_DIR=`mktemp -d`
 
-trap "rm -rf ${WORK_DIR} && cd ${CURRENT_DIR}" EXIT
+trap "echo 'Cleaning up and exiting...' && rm -rf ${WORK_DIR} && cd ${CURRENT_DIR}" EXIT
 
 function setup_python3 () {
   echo "Checking whether Python3 is installed..."
