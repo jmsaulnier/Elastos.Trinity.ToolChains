@@ -298,7 +298,7 @@ function setup_env () {
   setup_nodejs
   setup_android_sdkmanager
   setup_android_gradle
-  install_depencencies
+  install_dependencies
 
   # TODO: Need to find a good solution for this rather than just hard-coding the removal of the lines
   sed -i '/The app manifest must contain the application DID string to be able to secure intents/,+4 d' ${WORK_DIR}/Elastos.Trinity/ToolChains/native/bin/build_from_source
