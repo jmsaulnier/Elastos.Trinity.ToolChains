@@ -247,20 +247,20 @@ function preinstall () {
   # Update the package manager and install the essential build tools
   case `uname` in
     Linux )
-      sudo apt-get install build-essential -y
       if [ "${UPDATE}" == "yes" ]
       then
         sudo apt-get update -y 
       fi
+      sudo apt-get install build-essential -y
       READLINK=$(which readlink)
       SED=$(which sed)
     ;;
     Darwin )
-      brew install coreutils gnu-sed
       if [ "${UPDATE}" == "yes" ]
       then
         brew update
       fi
+      brew install coreutils gnu-sed
       READLINK=$(which greadlink)
       SED=$(which gsed)
     ;;
