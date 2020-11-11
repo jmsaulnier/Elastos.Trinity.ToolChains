@@ -31,6 +31,7 @@ fi
 
 CURRENT_DIR=$(pwd)
 WORK_DIR=`mktemp -d`
+
 trap "rm -rf ${WORK_DIR} && cd ${CURRENT_DIR}" EXIT
 
 function setup_python3 () {
@@ -42,7 +43,7 @@ function setup_python3 () {
     echo "Python3 is not installed on this system. Installing python3..."
     case `uname` in
       Linux )
-        sudo apt-get install build-essential python3.8 python3-pip -y
+        sudo apt-get install python3.8 python3-pip -y
       ;;
       Darwin )
         brew install sashkab/python/python@3.8
@@ -134,54 +135,41 @@ function setup_nodejs () {
   then
     curl https://deb.nodesource.com/setup_12.x | bash
     echo "Using NodeJS ${version} and Npm $(npm -v) for build"
+    echo "Setting up Npm path at ${HOME}/.npm-global and adding it to PATH temporarily"
+    mkdir -p ${HOME}/.npm-global
+    npm config set prefix '${HOME}/.npm-global'
+    export PATH="${PATH}:${HOME}/.npm-global/bin"
   fi
-
-  echo "Setting up Npm path at ${HOME}/.npm-global and adding it to PATH temporarily"
-  mkdir -p ${HOME}/.npm-global
-  npm config set prefix '${HOME}/.npm-global'
-  export PATH="${PATH}:${HOME}/.npm-global/bin"
 }
 
 function setup_android_sdkmanager () {
+  READLINK=$1
+  SED=$2
   echo "Checking whether Android Sdkmanager is installed..."
   found_sdkmanager="yes"
   if [[ $(type -p sdkmanager) ]]
   then
     echo "Found Android Sdkmanager"
-    _sdkmanager=sdkmanager
+    export ANDROID_SDK_ROOT=$(echo $(${READLINK} -f $(which sdkmanager)) | ${SED} 's#/cmdline-tools/tools/bin/sdkmanager##g')
   else
     found_sdkmanager="no"
     echo "Android Sdkmanager is not installed on this system. Installing Android Sdkmanager at ${HOME}/android/android-sdk..."   
   fi
 
-  if [[ "$_sdkmanager" ]]
-  then
-    version=$("$_sdkmanager" --version 2>&1)
-    if [[ "$version" > "4" ]]
-    then
-      echo "Using Android Sdkmanager ${version} for build"
-      export ANDROID_SDK_ROOT=$(echo $(readlink -f $(which sdkmanager)) | sed 's#/cmdline-tools/tools/bin/sdkmanager##g')
-    else       
-      found_sdkmanager ="no"
-      echo "Found incompatible Android Sdkmanager version: ${version}. Installing Android Sdkmanager"
-    fi
-  fi
-
   if [[ $(echo ${found_sdkmanager}) == "no" ]]
   then
-    mkdir -p ${HOME}/android/android-sdk/cmdline-tools
-    rm -rf ${HOME}/android/android-sdk/cmdline-tools/tools
+    rm -rf ${HOME}/android/android-sdk/cmdline-tools
+    mkdir -p ${HOME}/android/android-sdk/cmdline-tools   
     case `uname` in
       Linux )                                                     
         wget https://dl.google.com/android/repository/commandlinetools-linux-6858069_latest.zip -P ${WORK_DIR} &&  \
-        unzip -d ${HOME}/android/android-sdk/cmdline-tools ${WORK_DIR}/commandlinetools-linux-*.zip
+        yes | unzip -d ${HOME}/android/android-sdk/cmdline-tools ${WORK_DIR}/commandlinetools-linux-*.zip
       ;;
       Darwin )
         wget https://dl.google.com/android/repository/commandlinetools-mac-6858069_latest.zip -P ${WORK_DIR} &&  \
-        unzip -d ${HOME}/android/android-sdk/cmdline-tools ${WORK_DIR}/commandlinetools-mac-*.zip
+        yes | unzip -d ${HOME}/android/android-sdk/cmdline-tools ${WORK_DIR}/commandlinetools-mac-*.zip
       ;;
     esac
-    chmod 775 ${HOME}/android/android-sdk/ -R 
     echo "Setting up ANDROID_SDK_ROOT and adding it to PATH"
     echo "export ANDROID_SDK_ROOT=${HOME}/android/android-sdk"
     export ANDROID_SDK_ROOT=${HOME}/android/android-sdk
@@ -192,8 +180,9 @@ function setup_android_sdkmanager () {
       echo 'export PATH="${PATH}:${ANDROID_SDK_ROOT}/cmdline-tools/tools/bin"' >> ${HOME}/.bash_profile
     fi   
     source ${HOME}/.bash_profile
-    echo "Using Android Sdkmanager $(sdkmanager --version) for build"
   fi  
+
+  echo "Using Android Sdkmanager $(sdkmanager --version) for build"
 
   # Install Android Build Tools, Platform Tools and NDK"
   yes | sdkmanager                            \
@@ -206,6 +195,8 @@ function setup_android_sdkmanager () {
 }
 
 function setup_android_gradle () {
+  READLINK=$1
+  SED=$2
   echo "Checking whether Android Gradle is installed..."
   found_gradle="yes"
   if [[ $(type -p gradle) ]]
@@ -223,7 +214,7 @@ function setup_android_gradle () {
     if [[ "$version" > "4" ]]
     then
       echo "Using Android Gradle ${version} for build"
-      export GRADLE_HOME=$(echo $(readlink -f $(which gradle)) | sed 's#/bin/gradle##g')
+      export GRADLE_HOME=$(echo $(${READLINK} -f $(which gradle)) | ${SED} 's#/bin/gradle##g')
     else       
       found_gradle="no"
       echo "Found incompatible Android Gradle version: ${version}. Installing Android Gradle"
@@ -252,6 +243,16 @@ function setup_android_gradle () {
 }
 
 function install_dependencies () {
+  echo "Installing dependencies for basic tools..."
+  case `uname` in
+    Linux )
+      sudo apt-get install build-essential -y
+    ;;
+    Darwin )
+      brew install coreutils gnu-sed
+    ;;
+  esac
+
   echo "Setting up python virtual environment at ${HOME}/.venv"
   pip3 install virtualenv
   virtualenv -p `which python3` ${HOME}/.venv
@@ -289,12 +290,16 @@ function setup_env () {
       then
         sudo apt-get update -y 
       fi
+      READLINK=$(which readlink)
+      SED=$(which sed)
     ;;
     Darwin )
       if [ "${UPDATE}" == "yes" ]
       then
         brew update
       fi
+      READLINK=$(which greadlink)
+      SED=$(which gsed)
     ;;
     *)
       echo "This script can only run on Linux or Darwin machines. Exiting..."
@@ -305,16 +310,17 @@ function setup_env () {
   setup_python3
   setup_openjdk8
   setup_nodejs
-  setup_android_sdkmanager
-  setup_android_gradle
+  setup_android_sdkmanager ${READLINK} ${SED}
+  setup_android_gradle ${READLINK} ${SED}
   install_dependencies
 
-  # TODO: Need to find a good solution for this rather than just hard-coding the removal of the lines
-  sed -i '/The app manifest must contain the application DID string to be able to secure intents/,+4 d' ${WORK_DIR}/Elastos.Trinity/ToolChains/native/bin/build_from_source
+  # TODO: Need to find a good solution for this rather than just hard-coding the removal of the lines 
+  ${SED} -i'' '/The app manifest must contain the application DID string to be able to secure intents/,+4 d' ${WORK_DIR}/Elastos.Trinity/ToolChains/native/bin/build_from_source
 }
 
 setup_env
-${WORK_DIR}/Elastos.Trinity/ToolChains/native/bin/build_from_source --app ${ABSOLUTE_PATH}
+python --version
+python $WORK_DIR/Elastos.Trinity/ToolChains/native/bin/build_from_source --app ${ABSOLUTE_PATH}
 
 retVal=$?
 if [ $retVal -eq 0 ]; then
