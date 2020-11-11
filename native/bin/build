@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 set -e
 
-while getopts ":p:h" opt; do
+while getopts ":p:u:h" opt; do
   case $opt in
     h)
       echo "Usage:"
       echo "    run.sh -h                  Display this help message."
       echo "    run.sh -p                  Absolute path of the capsule"
+      echo "    run.sh -u[yes|no]          Whether or not to first update the system"
       exit 0
     ;;
     p) ABSOLUTE_PATH="$OPTARG"
+    ;;
+    u) UPDATE="$OPTARG"
     ;;
     \? )
       echo "Invalid Option: -$OPTARG" 1>&2
@@ -39,7 +42,7 @@ function setup_python3 () {
     echo "Python3 is not installed on this system. Installing python3..."
     case `uname` in
       Linux )
-        sudo apt-get install python3.8 python3-pip -y
+        sudo apt-get install build-essential python3.8 python3-pip -y
       ;;
       Darwin )
         brew install sashkab/python/python@3.8
@@ -172,7 +175,7 @@ function setup_android_sdkmanager () {
       ;;
       Darwin )
         wget https://dl.google.com/android/repository/commandlinetools-mac-6858069_latest.zip -P ${WORK_DIR} &&  \
-        unzip -d ${HOME}/android/android-sdk/cmdline-tools ${WORK_DIR}/commandlinetools-linux-*.zip
+        unzip -d ${HOME}/android/android-sdk/cmdline-tools ${WORK_DIR}/commandlinetools-mac-*.zip
       ;;
     esac
     chmod 775 ${HOME}/android/android-sdk/ -R 
@@ -211,7 +214,7 @@ function setup_android_gradle () {
   if [[ "$_gradle" ]]
   then
     version=$("$_gradle" --version 2>&1 | awk -F 'Gradle ' '/Gradle/ {print $2}')
-    if [[ "$version" > "5" ]]
+    if [[ "$version" > "4" ]]
     then
       echo "Using Android Gradle ${version} for build"
       export GRADLE_HOME=$(echo $(readlink -f $(which gradle)) | sed 's#/bin/gradle##g')
@@ -224,12 +227,12 @@ function setup_android_gradle () {
   if [[ $(echo ${found_gradle}) == "no" ]]
   then
     mkdir -p ${HOME}/android
-    rm -rf ${HOME}/android/gradle &&                      \
-    wget https://services.gradle.org/distributions/gradle-6.7-bin.zip -P ${WORK_DIR} &&  \
-    yes | unzip -d ${HOME}/android ${WORK_DIR}/gradle-6.7-bin.zip &&                     \
-    mv ${HOME}/android/gradle-6.7 ${HOME}/android/gradle &&                       \
-    echo "Setting up GRADLE_HOME and adding it to PATH" &&                        \
-    echo "export GRADLE_HOME=${HOME}/android/gradle" && \
+    rm -rf ${HOME}/android/gradle &&                                                        \
+    wget https://services.gradle.org/distributions/gradle-6.7-bin.zip -P ${WORK_DIR} &&     \
+    yes | unzip -d ${HOME}/android ${WORK_DIR}/gradle-6.7-bin.zip &&                        \
+    mv ${HOME}/android/gradle-6.7 ${HOME}/android/gradle &&                                 \
+    echo "Setting up GRADLE_HOME and adding it to PATH" &&                                  \
+    echo "export GRADLE_HOME=${HOME}/android/gradle" &&                                     \
     export GRADLE_HOME=${HOME}/android/gradle  
     printf "\n# GRADLE_HOME PATH added by Elastos.Trinity Toolchain Build Process\nexport GRADLE_HOME=${HOME}/android/gradle\n" >> ${HOME}/.bash_profile
     export PATH="${PATH}:${GRADLE_HOME}/bin"
@@ -239,7 +242,7 @@ function setup_android_gradle () {
   fi
 }
 
-function install_depencencies () {
+function install_dependencies () {
   echo "Setting up python virtual environment at ${HOME}/.venv"
   pip3 install virtualenv
   virtualenv -p `which python3` ${HOME}/.venv
@@ -273,11 +276,16 @@ function setup_env () {
   # Update the package manager and install the essential build tools
   case `uname` in
     Linux )
-      sudo apt-get update -y 
-      sudo apt-get install build-essential -y
+      if [ "${UPDATE}" == "yes" ]
+      then
+        sudo apt-get update -y 
+      fi
     ;;
     Darwin )
-      brew update
+      if [ "${UPDATE}" == "yes" ]
+      then
+        brew update
+      fi
     ;;
     *)
       echo "This script can only run on Linux or Darwin machines. Exiting..."
