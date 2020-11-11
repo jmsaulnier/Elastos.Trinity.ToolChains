@@ -242,7 +242,7 @@ function setup_android_gradle () {
   fi
 }
 
-function install_dependencies () {
+function preinstall () {
   echo "Installing dependencies for basic tools..."
   case `uname` in
     Linux )
@@ -252,7 +252,9 @@ function install_dependencies () {
       brew install coreutils gnu-sed
     ;;
   esac
+}
 
+function install_dependencies () {
   echo "Setting up python virtual environment at ${HOME}/.venv"
   pip3 install virtualenv
   virtualenv -p `which python3` ${HOME}/.venv
@@ -307,6 +309,7 @@ function setup_env () {
     ;;
   esac
   
+  preinstall
   setup_python3
   setup_openjdk8
   setup_nodejs
@@ -319,7 +322,6 @@ function setup_env () {
 }
 
 setup_env
-python --version
 python $WORK_DIR/Elastos.Trinity/ToolChains/native/bin/build_from_source --app ${ABSOLUTE_PATH}
 
 retVal=$?
