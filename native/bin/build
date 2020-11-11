@@ -285,6 +285,9 @@ function setup_env () {
   # This is to handle an edge-case if the script is re-run twice without manually sourcing 
   # ~/.bash_profile after installing different dependencies
   source ${HOME}/.bash_profile
+
+  preinstall
+
   # Update the package manager and install the essential build tools
   case `uname` in
     Linux )
@@ -309,7 +312,6 @@ function setup_env () {
     ;;
   esac
   
-  preinstall
   setup_python3
   setup_openjdk8
   setup_nodejs
