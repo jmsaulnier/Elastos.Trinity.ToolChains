@@ -97,7 +97,10 @@ function setup_openjdk8 () {
     echo "Setting up JAVA_HOME and adding it to PATH"
     echo "export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64"
     export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
-    printf "\n# JAVA_HOME PATH added by Elastos.Trinity Toolchain Build Process\nexport JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64\n" >> ${HOME}/.bash_profile
+    if [ -z $(cat ${HOME}/.bash_profile | grep "JAVA_HOME PATH added by Elastos.Trinity Toolchain") ]
+    then
+      printf "\n# JAVA_HOME PATH added by Elastos.Trinity Toolchain Build Process\nexport JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64\n" >> ${HOME}/.bash_profile
+    fi
     source ${HOME}/.bash_profile
     echo "Using Java $(java -version) for build"
   fi
@@ -182,9 +185,12 @@ function setup_android_sdkmanager () {
     echo "Setting up ANDROID_SDK_ROOT and adding it to PATH"
     echo "export ANDROID_SDK_ROOT=${HOME}/android/android-sdk"
     export ANDROID_SDK_ROOT=${HOME}/android/android-sdk
-    printf "\n# ANDROID_SDK_ROOT PATH added by Elastos.Trinity Toolchain Build Process\nexport ANDROID_SDK_ROOT=${HOME}/android/android-sdk\n" >> ${HOME}/.bash_profile
     export PATH="${PATH}:${ANDROID_SDK_ROOT}/cmdline-tools/tools/bin"
-    echo 'export PATH="${PATH}:${ANDROID_SDK_ROOT}/cmdline-tools/tools/bin"' >> ${HOME}/.bash_profile
+    if [ -z $(cat ${HOME}/.bash_profile | grep "ANDROID_SDK_ROOT PATH added by Elastos.Trinity Toolchain") ]
+    then
+      printf "\n# ANDROID_SDK_ROOT PATH added by Elastos.Trinity Toolchain Build Process\nexport ANDROID_SDK_ROOT=${HOME}/android/android-sdk\n" >> ${HOME}/.bash_profile
+      echo 'export PATH="${PATH}:${ANDROID_SDK_ROOT}/cmdline-tools/tools/bin"' >> ${HOME}/.bash_profile
+    fi   
     source ${HOME}/.bash_profile
     echo "Using Android Sdkmanager $(sdkmanager --version) for build"
   fi  
@@ -233,10 +239,13 @@ function setup_android_gradle () {
     mv ${HOME}/android/gradle-6.7 ${HOME}/android/gradle &&                                 \
     echo "Setting up GRADLE_HOME and adding it to PATH" &&                                  \
     echo "export GRADLE_HOME=${HOME}/android/gradle" &&                                     \
-    export GRADLE_HOME=${HOME}/android/gradle  
-    printf "\n# GRADLE_HOME PATH added by Elastos.Trinity Toolchain Build Process\nexport GRADLE_HOME=${HOME}/android/gradle\n" >> ${HOME}/.bash_profile
+    export GRADLE_HOME=${HOME}/android/gradle   
     export PATH="${PATH}:${GRADLE_HOME}/bin"
-    echo 'export PATH="${PATH}:${GRADLE_HOME}/bin"' >> ${HOME}/.bash_profile
+    if [ -z $(cat ${HOME}/.bash_profile | grep "GRADLE_HOME PATH added by Elastos.Trinity Toolchain") ]
+    then
+      printf "\n# GRADLE_HOME PATH added by Elastos.Trinity Toolchain Build Process\nexport GRADLE_HOME=${HOME}/android/gradle\n" >> ${HOME}/.bash_profile
+      echo 'export PATH="${PATH}:${GRADLE_HOME}/bin"' >> ${HOME}/.bash_profile
+    fi    
     source ${HOME}/.bash_profile 
     echo "Using Android Gradle $(gradle --version) for build"                               
   fi
