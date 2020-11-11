@@ -110,7 +110,7 @@ def build_app(app_path, platform, needBuild, output="www"):
 
     if needBuild:
         run_cmd("npm install")
-        run_cmd("ionic build --prod")
+        run_cmd("NODE_OPTIONS=--max-old-space-size=4092 ionic build --prod")
         if args.uploadsourcemap and os.path.isfile(app_path +'/.sentry.sh'):
             # upload sourcemaps to sentry for better debugging
             run_cmd("./.sentry.sh")
@@ -316,7 +316,7 @@ if args.target == "plugin":
 if args.target == "all" or args.target == "launcher":
     os.chdir(LAUNCHER_DIR_PATH)
     run_cmd("npm install")
-    run_cmd("ionic build --prod")
+    run_cmd("NODE_OPTIONS=--max-old-space-size=4092 ionic build --prod")
     copy_tree("www", RUNTIME_DIR_PATH + "/www/launcher/")
 
 if args.target == "launcher":
