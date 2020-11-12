@@ -13,7 +13,8 @@ exports.builder = {
   platform: {
     alias: "p",
     describe: "Platform to deploy to (android|ios|desktop)",
-    require: true
+    require: true,
+    nargs: 1
   },
   nodebug: {
       // Let the app be deployed without ionic serve. This way, manifest is not modified and will call
@@ -31,10 +32,19 @@ exports.builder = {
     nargs: 0
   },
   localmdns: {
-    describe: "Forces the iOS bonjour service (dAPP installation) to run only on localhost to solve iOS mDNS resolving issues in some cases"
+    describe: "Forces the iOS bonjour service (dAPP installation) to run only on localhost to solve iOS mDNS resolving issues in some cases",
+    require: false,
+    nargs: 0
   },
   device: {
-    describe: "Identifier of the device to which the app should be deployed. Use this option in case several devices are connected on the computer (android)"
+    describe: "Identifier of the device to which the app should be deployed. Use this option in case several devices are connected on the computer (android)",
+    require: false,
+    nargs: 1
+  },
+  wipestorage: {
+    describe: "After installation on device, the application local storage is deleted to restore the application context to its original state.",
+    require: false,
+    nargs: 0
   }
 }
 exports.handler = function (argv) {
@@ -43,18 +53,22 @@ exports.handler = function (argv) {
     var forProd = argv.prod || false
     var localMDNS = argv.localmdns || false
     var device = argv.device
+    var wipeStorage = argv.wipestorage || false;
 
     if (forProd)
         console.log("Building for production")
 
+    if (wipeStorage)
+        console.log("NOTE: Local application data will be wiped on the device!".magenta);
+
     switch (platform) {
         case "android":
-            deployAndroidDApp(noDebug, forProd, device)
+            deployAndroidDApp(noDebug, forProd, wipeStorage, device)
             break;
         case "ios":
         case "desktop":
             // Desktop currently uses the same process as iOS, with a generic bonjour service
-            deployiOSDApp(noDebug, forProd, localMDNS)
+            deployiOSDApp(noDebug, forProd, wipeStorage, localMDNS)
             break;
         default:
             console.log("ERROR - Not a valid platform")
@@ -123,7 +137,7 @@ async function runSharedDeploymentPhase(noDebug, forProd) {
  * - push and run the EPK on the device (adb push/shell am start, on android)
  * - ionic serve (for hot reload inside trinity, when user saves his files)
  */
-async function deployAndroidDApp(noDebug, forProd, device) {
+async function deployAndroidDApp(noDebug, forProd, wipeStorage, device) {
     var runHelper = new RunHelper()
     var ionicHelper = new IonicHelper()
 
@@ -160,7 +174,7 @@ async function deployAndroidDApp(noDebug, forProd, device) {
     //let outputEPKPath = "/var/folders/d2/nw213ddn1c7g6_zcp5940ckw0000gn/T/temp.epk"
     runSharedDeploymentPhase(noDebug, forProd).then((sharedInfo)=>{
         runHelper.androidUploadEPK(sharedInfo.outputEPKPath, device).then(()=>{
-            runHelper.androidInstallTempEPK(device).then(()=>{
+            runHelper.androidInstallTempEPK(device, wipeStorage).then(()=>{
                 console.log("RUN OPERATION COMPLETED".green)
 
                 if (!noDebug) {
@@ -193,7 +207,7 @@ async function deployAndroidDApp(noDebug, forProd, device) {
  * - run a bonjour + http service and wait for native app to download the EPK
  * - ionic serve (for hot reload inside trinity, when user saves his files)
  */
-async function deployiOSDApp(noDebug, forProd, localMDNS) {
+async function deployiOSDApp(noDebug, forProd, wipeStorage, localMDNS) {
     var runHelper = new RunHelper()
     var ionicHelper = new IonicHelper()
 
@@ -209,7 +223,7 @@ async function deployiOSDApp(noDebug, forProd, localMDNS) {
 
     //let outputEPKPath = "/var/folders/d2/nw213ddn1c7g6_zcp5940ckw0000gn/T/temp.epk"
     runSharedDeploymentPhase(noDebug, forProd).then((sharedInfo)=>{
-        runHelper.runDownloadService(sharedInfo.outputEPKPath, sharedInfo.ipAddress, localMDNS).then(()=>{
+        runHelper.runDownloadService(sharedInfo.outputEPKPath, sharedInfo.ipAddress, localMDNS, wipeStorage).then(()=>{
             console.log("RUN OPERATION COMPLETED".green)
 
             if (!noDebug) {

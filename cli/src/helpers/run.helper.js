@@ -89,7 +89,7 @@ module.exports = class RunHelper {
      * Request the trinity application to open a EPK file that was previously pushed to the device.
      * That may install that EPK inside trinity.
      */
-    androidInstallTempEPK(device) {
+    androidInstallTempEPK(device, wipeStorage) {
         return new Promise((resolve, reject) => {
             console.log("Requesting your trinity application to install your DApp...")
 
@@ -113,6 +113,12 @@ module.exports = class RunHelper {
             adbOptions.push("*.epk");
             adbOptions.push("-c");
             adbOptions.push("android.intent.category.TEST");
+
+            if (wipeStorage) {
+                adbOptions.push("-e");
+                adbOptions.push("wipestorage");
+                adbOptions.push("wipe");
+            }
 
             const adbProcess = spawn('adb', adbOptions);
 
@@ -264,7 +270,7 @@ module.exports = class RunHelper {
         })
     }
 
-    runDownloadService(epkPath, ipAddress, localMDNS) {
+    runDownloadService(epkPath, ipAddress, localMDNS, wipeStorage) {
         return new Promise((resolve, reject)=>{
             var server;
             let port = 3000
