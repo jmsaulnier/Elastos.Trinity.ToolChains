@@ -282,6 +282,14 @@ module.exports = class RunHelper {
             var express = require('express')
             var app = express()
 
+            // Returns information/options for this download progress.
+            app.get('/downloadinfo', (req, res) => {
+                res.json({
+                    wipeAppData: wipeStorage
+                });
+            })
+
+            // Returns the EPK file as binary content
             app.get('/downloadepk', (req, res) => {
                 res.sendFile(epkPath, {}, (err)=>{
                     if (err) {
