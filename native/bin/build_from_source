@@ -137,8 +137,10 @@ def build_app(app_path, platform, needBuild, output="www"):
 
     if needBuild:
         print("Cleaning up node_modules/ and package-lock.json")
-        remove_tree(os.path.join(app_path, "node_modules"))
-        os.unlink(os.path.join(app_path, "package-lock.json"))
+        if (os.path.exists(os.path.join(app_path, "node_modules"))):
+            remove_tree(os.path.join(app_path, "node_modules"))
+        if (os.path.exists(os.path.join(app_path, "package-lock.json"))):
+            os.unlink(os.path.join(app_path, "package-lock.json"))
 
         print("Installing dapp's NPM dependencies")
         run_cmd("npm install --prefer-offline --no-audit")
