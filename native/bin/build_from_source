@@ -116,10 +116,10 @@ def remove_tree(directory):
             sys.exit(1)
 
 def copy_tree(src, dst, force_clean=False):
-    print("Copying " + src + " To " + dst)
+    print("Copying: " + src)
+    print("...To: " + dst)
     if force_clean:
         remove_tree(dst)
-    print("Copying to: "+dst)
     dir_util.copy_tree(src, dst)
 
 def get_appid(manifest):
@@ -132,10 +132,15 @@ def build_app(app_path, platform, needBuild, output="www"):
     print("Building ionic dApp at: "+app_path)
 
     basename = os.path.basename(app_path)
-    print("\r\n-------------------- Building dapp: " + basename + " --------------------")
+    print(bcolors.OKCYAN+"\r\n-------------------- Building dapp: " + basename + " --------------------"+bcolors.ENDC)
     os.chdir(app_path)
 
     if needBuild:
+        print("Cleaning up node_modules/ and package-lock.json")
+        remove_tree(os.path.join(app_path, "node_modules"))
+        os.unlink(os.path.join(app_path, "package-lock.json"))
+
+        print("Installing dapp's NPM dependencies")
         run_cmd("npm install --prefer-offline --no-audit")
         run_cmd("NODE_OPTIONS=--max-old-space-size=4092 ionic build --prod")
 
@@ -413,7 +418,7 @@ def patchCordovaConfigXml():
     f.close()
 
 def cloneRuntimeFolder():
-    print("Cloning the Runtime folder")
+    print(bcolors.OKCYAN+"Cloning the Runtime folder"+bcolors.ENDC)
     # Copy items one by one to avoid slow copies that include generated folders such as node_modules or origin_platforms
     # and make sure to start with something clean
     ela_util.safeMkdir(getRuntimeCopyDirPath())
@@ -428,7 +433,7 @@ def cloneRuntimeFolder():
     shutil.copy2(RUNTIME_DIR_PATH+"/package.json", getRuntimeCopyDirPath()+"/package.json")
 
 def clonePluginsFolder():
-    print("Cloning the Plugins folder")
+    print(bcolors.OKCYAN+"Cloning the Plugins folder"+bcolors.ENDC)
     copy_tree(PLUGIN_DIR_PATH, getPluginsCopyDirPath())
 
 # Converts package id such as "org.company.app" to "org/company/app"
@@ -550,6 +555,8 @@ def displayCompletionFriendlyInformation():
 ####################
 ### MAIN PROCESS ###
 ####################
+
+print("")
 
 SCRIPT_PATH=os.path.realpath(__file__)
 
