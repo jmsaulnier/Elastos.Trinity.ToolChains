@@ -317,13 +317,12 @@ function install_dependencies () {
   then 
     mkdir -p ${WORK_DIR} 
     git clone --recurse-submodules -j8 https://github.com/elastos/Elastos.Trinity.git ${WORK_DIR}/Elastos.Trinity
+  else 
+    cd ${WORK_DIR}/Elastos.Trinity
+    rm -rf Dapps Launcher Plugins Runtime ToolChains
+    git submodule update --recursive
   fi 
-  cd ${WORK_DIR}/Elastos.Trinity && git pull --recurse-submodule
-  cd ${WORK_DIR}/Elastos.Trinity/Dapps && git checkout master && git pull
-  cd ${WORK_DIR}/Elastos.Trinity/Launcher && git checkout master && git pull
-  cd ${WORK_DIR}/Elastos.Trinity/Plugins && git checkout master && git pull
-  cd ${WORK_DIR}/Elastos.Trinity/Runtime && git checkout master && git pull
-  cd ${WORK_DIR}/Elastos.Trinity/ToolChains && git checkout master && git pull
+  cd ${WORK_DIR}/Elastos.Trinity && ./synccode.sh
 
   echo "Installing python dependencies..."
   case `uname` in
@@ -354,7 +353,8 @@ function setup_env () {
 }
 
 setup_env || stop_script "Could not successfully setup the environment"
-python ${WORK_DIR}/Elastos.Trinity/ToolChains/native/bin/build_from_source --app ${ABSOLUTE_PATH}
+cd ${WORK_DIR}/Elastos.Trinity/ToolChains/native/bin/
+yes no | python ./build_from_source --app ${ABSOLUTE_PATH}
 
 retVal=$?
 if [ $retVal -eq 0 ]; then
