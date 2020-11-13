@@ -169,10 +169,6 @@ function setup_nodejs () {
     esac
     echo "Using NodeJS $(node -v) and Npm $(npm -v) for build"
   fi
-  echo "Setting up Npm path at ${HOME}/.npm-global and adding it to PATH temporarily"
-  mkdir -p ${HOME}/.npm-global/lib
-  npm config set prefix "${HOME}/.npm-global"
-  export PATH="${PATH}:${HOME}/.npm-global/bin"
 }
 
 function setup_android_sdkmanager () {
@@ -281,6 +277,17 @@ function setup_android_gradle () {
   fi
 }
 
+function ensure_pkg_installed () {
+  # TODO: Need to support linux 
+  cmd=$(brew list $1 2>&1 >/dev/null)
+  if [ $? -eq 0 ]
+  then 
+    echo "$1 is already installed. Skipping..."
+  else 
+    brew install $1 || stop_script "Cannot install $1"
+  fi
+}
+
 function preinstall () {
   echo "Installing basic dependencies and tools..."
   # Update the package manager and install the essential build tools
@@ -302,9 +309,14 @@ function preinstall () {
         brew update
         sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
       fi
-      brew install coreutils gnu-sed wget curl || stop_script "Cannot install basic dependencies"
+      ensure_pkg_installed coreutils 
+      ensure_pkg_installed gnu-sed 
+      ensure_pkg_installed wget 
+      ensure_pkg_installed curl 
+      ensure_pkg_installed ios-deploy 
       READLINK=$(which greadlink)
       SED=$(which gsed)
+      sudo gem install cocoapods
     ;;
     *)
       echo "This script can only run on Linux or Darwin machines. Exiting..."
@@ -322,10 +334,9 @@ function install_dependencies () {
 
   echo "Installing npm dependencies..."
   rm -rf ${HOME}/.npm-global/lib/node_modules
-  npm install -g                                          \
+  npm install -g --unsafe-perm                            \
     cordova@10.0.0                                        \
     cordova-res@0.15.1                                    \
-    cordova-ios@5.1.1                                     \
       @ionic/cli@6.12.1                                   \
       typescript@4.0.5                                    \
       @elastosfoundation/trinity-cli  || stop_script "Cannot install npm dependencies"
