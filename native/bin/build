@@ -186,7 +186,7 @@ function setup_android_sdkmanager () {
 
   if [[ $(echo ${found_sdkmanager}) == "no" ]]
   then
-    rm -rf ${HOME}/android/android-sdk/cmdline-tools
+    rm -rf ${HOME}/android/android-sdk
     mkdir -p ${HOME}/android/android-sdk   
     if [ "$(uname)" == "Linux" ]
     then 
