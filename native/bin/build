@@ -136,12 +136,12 @@ function setup_nodejs () {
 
   if [[ "$_node" ]]
   then
-    version=$("$_node" -v 2>&1 | awk -F 'v' '/v/ {print $2}')
-    if [[ "$version" > "12" ]]
+    version=$("$_node" -v 2>&1 | awk -F 'v' '/v/ {print $2}' | awk -F '.' '/./ {print $1}')
+    if [[ "$version" > "11" && "$version" < "13" ]]
     then
       echo "Using NodeJS ${version} and Npm $(npm -v) for build"
     else       
-      found_jdk8 ="no"
+      found_nodejs="no"
       echo "Found incompatible NodeJS version: ${version}. Installing NodeJS 12.x"
     fi
   fi
@@ -150,18 +150,29 @@ function setup_nodejs () {
   then
     case `uname` in
       Linux )
-        sudo apt-get install node npm -y || stop_script "Cannot install NodeJS"
+        curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
+        sudo apt-get install -y nodejs || stop_script "Cannot install NodeJS"
       ;;
       Darwin )
-        brew install node || stop_script "Cannot install NodeJS"
+        brew rm node
+        brew install node@12 || stop_script "Cannot install NodeJS"
+        export PATH="${PATH}:/usr/local/opt/node@12/bin"
+        EXIST_ON_BASHPROFILE=$(cat ${HOME}/.bash_profile | grep "NodeJS 12 PATH added by Elastos.Trinity Toolchain")
+        if [ -z "${EXIST_ON_BASHPROFILE}" ]
+        then
+          printf "\n# NodeJS 12 PATH added by Elastos.Trinity Toolchain Build Process\n" >> ${HOME}/.bash_profile
+          echo 'export PATH="${PATH}:/usr/local/opt/node@12/bin"' >> ${HOME}/.bash_profile
+        fi   
+        source ${HOME}/.bash_profile
+    
       ;;
     esac
-    echo "Using NodeJS ${version} and Npm $(npm -v) for build"
-    echo "Setting up Npm path at ${HOME}/.npm-global and adding it to PATH temporarily"
-    mkdir -p ${HOME}/.npm-global
-    npm config set prefix '${HOME}/.npm-global'
-    export PATH="${PATH}:${HOME}/.npm-global/bin"
+    echo "Using NodeJS $(node -v) and Npm $(npm -v) for build"
   fi
+  echo "Setting up Npm path at ${HOME}/.npm-global and adding it to PATH temporarily"
+  mkdir -p ${HOME}/.npm-global/lib
+  npm config set prefix "${HOME}/.npm-global"
+  export PATH="${PATH}:${HOME}/.npm-global/bin"
 }
 
 function setup_android_sdkmanager () {
@@ -277,6 +288,7 @@ function preinstall () {
     Linux )
       if [ "${UPDATE}" == "yes" ]
       then
+        sudo apt autoremove -y
         sudo apt-get update -y
       fi
       sudo apt-get install build-essential wget curl -y || stop_script "Cannot install basic dependencies"
@@ -286,12 +298,13 @@ function preinstall () {
     Darwin )
       if [ "${UPDATE}" == "yes" ]
       then
+        brew cleanup
         brew update
+        sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
       fi
       brew install coreutils gnu-sed wget curl || stop_script "Cannot install basic dependencies"
       READLINK=$(which greadlink)
       SED=$(which gsed)
-
     ;;
     *)
       echo "This script can only run on Linux or Darwin machines. Exiting..."
@@ -308,12 +321,14 @@ function install_dependencies () {
   pip install --upgrade pip
 
   echo "Installing npm dependencies..."
-  npm install -g --unsafe-perm                            \
+  rm -rf ${HOME}/.npm-global/lib/node_modules
+  npm install -g                                          \
     cordova@10.0.0                                        \
     cordova-res@0.15.1                                    \
+    cordova-ios@5.1.1                                     \
       @ionic/cli@6.12.1                                   \
       typescript@4.0.5                                    \
-      @elastosfoundation/trinity-cli@1.1.34  || stop_script "Cannot install npm dependencies"
+      @elastosfoundation/trinity-cli  || stop_script "Cannot install npm dependencies"
 
   echo "Cloning Elastos.Trinity github repository..."
   if [ ! -d "${WORK_DIR}/Elastos.Trinity" ]
