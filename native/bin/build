@@ -191,10 +191,8 @@ function setup_android_sdkmanager () {
     if [ "$(uname)" == "Linux" ]
     then 
       file_name="commandlinetools-linux-6858069_latest.zip"
-      android_cmdline_path="cmdline-tools/tools/bin"
     else
       file_name="commandlinetools-mac-6858069_latest.zip"
-      android_cmdline_path="cmdline-tools/cmdline-tools/bin"
     fi
     wget https://dl.google.com/android/repository/${file_name} -P ${TMP_DIR} || stop_script "Cannot download Android Sdkmanager"
     yes | unzip -d ${HOME}/android/android-sdk/cmdline-tools ${TMP_DIR}/${file_name} || stop_script "Cannot install Android Sdkmanager"
@@ -206,7 +204,7 @@ function setup_android_sdkmanager () {
     if [ -z "${EXIST_ON_BASHPROFILE}" ]
     then
       printf "\n# ANDROID_SDK_ROOT PATH added by Elastos.Trinity Toolchain Build Process\nexport ANDROID_SDK_ROOT=${HOME}/android/android-sdk\n" >> ${HOME}/.bash_profile
-      echo 'export PATH="${PATH}:${ANDROID_SDK_ROOT}/'${android_cmdline_path}'"' >> ${HOME}/.bash_profile
+      echo 'export PATH="${PATH}:${ANDROID_SDK_ROOT}/cmdline-tools/cmdline-tools/bin"' >> ${HOME}/.bash_profile
     fi   
     source ${HOME}/.bash_profile
   fi  
