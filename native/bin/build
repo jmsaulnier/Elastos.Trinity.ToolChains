@@ -199,11 +199,14 @@ function setup_android_sdkmanager () {
     echo "Setting up ANDROID_SDK_ROOT and adding it to PATH"
     echo "export ANDROID_SDK_ROOT=${HOME}/android/android-sdk"
     export ANDROID_SDK_ROOT=${HOME}/android/android-sdk
+    echo "export ANDROID_HOME=${HOME}/android/android-sdk"
+    export ANDROID_HOME=${HOME}/android/android-sdk
     export PATH="${PATH}:${ANDROID_SDK_ROOT}/${android_cmdline_path}"
     EXIST_ON_BASHPROFILE=$(cat ${HOME}/.bash_profile | grep "ANDROID_SDK_ROOT PATH added by Elastos.Trinity Toolchain")
     if [ -z "${EXIST_ON_BASHPROFILE}" ]
     then
       printf "\n# ANDROID_SDK_ROOT PATH added by Elastos.Trinity Toolchain Build Process\nexport ANDROID_SDK_ROOT=${HOME}/android/android-sdk\n" >> ${HOME}/.bash_profile
+      echo "export ANDROID_HOME=${HOME}/android/android-sdk" >> ${HOME}/.bash_profile
       echo 'export PATH="${PATH}:${ANDROID_SDK_ROOT}/cmdline-tools/cmdline-tools/bin"' >> ${HOME}/.bash_profile
     fi   
     source ${HOME}/.bash_profile
